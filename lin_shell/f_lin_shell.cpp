@@ -7,8 +7,8 @@ void f_lin_shell(class FEAMesh &feaMesh, std::vector<Material_ABD> &material,
     Matrix3d zero3 = Matrix3d::Zero();
 
     // int dpn = 6, dpe = 18, npe = 3;
-    const int &dpn = feaMesh.dpn, &dpe = feaMesh.dpe, &npe = feaMesh.npe;
-    const bool &isOverlaid = feaMesh.isOverlaid;
+    const int dpn = feaMesh.dpn, dpe = feaMesh.dpe, npe = feaMesh.npe;
+    const bool isOverlaid = feaMesh.isOverlaid;
     VectorXi BCid = feaMesh.BCid;
 
     // parsing inputs

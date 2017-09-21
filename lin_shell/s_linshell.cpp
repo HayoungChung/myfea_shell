@@ -3,7 +3,7 @@
 #include <vector>
 #include <fstream>
 
-#include "./linshell.h"
+#include "./lin_shell.h"
 
 using namespace Eigen;
 
@@ -80,20 +80,20 @@ int main()
     force.NM = Force_NM;
     force.fix = Force_Fix;
 
-    SparseMatrix<double> GKT(nDOF, nDOF);
-    VectorXd Res(nDOF);
+    // Res = VectorXd::Zero(nDOF);
 
-    Res = VectorXd::Zero(nDOF);
-    f_lin_shell(feaMesh, material, force, GKT, Res);
+    // f_lin_shell(feaMesh, material, force, GKT, Res);
+    LinShell lin_shell(feaMesh, material, force);
+    lin_shell.compute();
 
     SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spQR;
-    GKT.makeCompressed();
-    spQR.compute(GKT);
+    lin_shell.sGKT.makeCompressed();
+    spQR.compute(lin_shell.sGKT);
 
     MatrixXd u;
     MatrixXd u6;
 
-    u = spQR.solve(Res);
+    u = spQR.solve(lin_shell.Res);
     u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
 
     // Post-process
@@ -111,6 +111,6 @@ int main()
     {
         Ffile << force.fix << std::endl;
         Ffile << "Res: \n";
-        Ffile << Res << std::endl; // TOFIX: too many nans
+        Ffile << lin_shell.Res << std::endl; 
     }
 }
