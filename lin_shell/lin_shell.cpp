@@ -20,6 +20,8 @@ LinShell::LinShell(class FEAMesh &feaMesh_, std::vector<Material_ABD> &material_
 
     sGKT.resize(nDOF, nDOF);
     Res.resize(nDOF);
+
+    compliance = 0.0;
 }
 
 void LinShell::compute()
@@ -284,7 +286,8 @@ std::vector<GptsCompl> LinShell::get_GaussCompl(MatrixXd &GU_u6)
             gptsSens[ee * elem_order.rows() + kk].z = (X(2, 0) + X(2, 1) + X(2, 2)) / 3.0;
             // comptue gaussprops
             std::vector<GaussProp> gaussprops = f_GaussProp(xycoord, Mater_e, FNM_r, p_d);
-            gptsSens[ee * elem_order.rows() + kk].sens = gaussprops[0].sens; // need debug
+            gptsSens[ee * elem_order.rows() + kk].sens = gaussprops[0].sens; 
+            compliance += gaussprops[0].sens;
         }
     }
     return gptsSens;

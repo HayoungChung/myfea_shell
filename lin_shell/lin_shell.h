@@ -24,7 +24,8 @@ public:
   VectorXd Res;
 
   std::vector<GptsCompl> gptsSens;
-
+  double compliance;
+  
 private:
   FEAMesh &feaMesh;
   std::vector<Material_ABD> &material;
