@@ -15,8 +15,8 @@ int main()
     bool isOverlaid = true;
 
     // Mesh generation
-    const double Lxy[2] = {12, 2};
-    const int exy[2] = {12, 2};
+    const double Lxy[2] = {20, 10};
+    const int exy[2] = {20, 10};
     const double h = 0.5; // the h/L < 0.1
 
     FEAMesh feaMesh(Lxy, exy, isOverlaid);
@@ -72,9 +72,9 @@ int main()
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
 
-    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1], 1e-3, 1e-3);
+    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1]/2, 1e-3, 1e-3);
 
-    Force_Fix(Xtip[0], 2) = -10;
+    Force_Fix(Xtip[0], 3) = -10;
 
     Force force;
     force.NM = Force_NM;
@@ -102,8 +102,10 @@ int main()
     {
         for (int ii = 0; ii < gptsCompl.size() ; ++ii)
         {
-            sfile << "(" << gptsCompl[ii].x << ", " << gptsCompl[ii].y <<
-            ", " << gptsCompl[ii].z << ") " << gptsCompl[ii].sens << std::endl;
+            // sfile << "(" << gptsCompl[ii].x << ", " << gptsCompl[ii].y <<
+            // ", " << gptsCompl[ii].z << ") " << gptsCompl[ii].sens << std::endl;
+            sfile << gptsCompl[ii].x << " " << gptsCompl[ii].y <<
+            " " << gptsCompl[ii].z << " " << gptsCompl[ii].sens << std::endl;
         }
     }
 

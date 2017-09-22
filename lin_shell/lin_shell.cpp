@@ -232,16 +232,15 @@ std::vector<GptsCompl> LinShell::get_GaussCompl(MatrixXd &GU_u6)
             }
 
             Matrix<double, 3, 3> X;
-            Matrix<double, 3, 6> u;
-            FilteredP p_d;
+            Matrix<double, 6, 3> u;
             for (int mmm = 0; mmm < 3; ++mmm)
             {
                 X.col(mmm) = NODE.row(elem_id(mmm)).transpose();
-                u.row(mmm) = GU_u6.row(elem_id(mmm));                
+                u.col(mmm) = GU_u6.row(elem_id(mmm)).transpose();
             }
-            p_d.membrane << u(0, 0), u(0, 1), u(0, 5), u(1, 0), u(1, 1), u(1, 5), u(2, 0), u(2, 1), u(2, 5);
-            p_d.bending << u(0, 2), u(0, 3), u(0, 4), u(1, 2), u(1, 3), u(1, 4), u(2, 2), u(2, 3), u(2, 4);
 
+            
+            
             // Transpose matrix [e1; e2; e3]
             // x axis of T0 is x1-x2 line
             // TOFIX: x axis of Tmat (material) should be computed analytically
@@ -251,9 +250,16 @@ std::vector<GptsCompl> LinShell::get_GaussCompl(MatrixXd &GU_u6)
             T0.row(2) = T0.row(0).cross(X.col(2) - X.col(0));
             T0.row(2) /= T0.row(2).norm();
             T0.row(1) = T0.row(2).cross(T0.row(0));
-
+            
             // TOFIX: X must be flat currently
-            Matrix3d X_R;
+            Matrix3d X_R, u_Rm, u_Rb;
+            u_Rm = T0 * u.topRows(3);
+            u_Rb = T0 * u.bottomRows(3);
+
+            FilteredP p_d;
+            p_d.membrane << u_Rm(0, 0), u_Rm(1, 0), u_Rb(2, 0), u_Rm(0, 1), u_Rm(1, 1), u_Rb(2, 1), u_Rm(0, 2), u_Rm(1, 2), u_Rb(2, 2);
+            p_d.bending  << u_Rm(2, 0), u_Rb(0, 0), u_Rb(1, 0), u_Rm(2, 1), u_Rb(0, 1), u_Rb(1, 1), u_Rm(2, 2), u_Rb(0, 2), u_Rb(1, 2);
+
             X_R = T0 * X;
             Matrix<double, 2, 3> xycoord = X_R.topRows(2);
 
