@@ -1,11 +1,31 @@
 #include "FEA_hy.h"
 #include <fstream>
+#include <cmath>
 
 FEAMesh::FEAMesh(const double* _Lxy, const int* _exy, bool isOverlaid){
     Lxy = _Lxy; exy = _exy;
     this->isOverlaid = isOverlaid;
     get_Mesh(3);
-    
+    // initialize properties
+    areafraction.reserve(nELEM);
+    Centeroids = MatrixXd::Zero(nELEM, 3);
+    ElemArea.reserve(nELEM);
+    set_ElemArea();
+    ComputeCentroids();
+}
+
+void FEAMesh::set_ElemArea(){
+    double multi;
+    VectorXi elem_id;
+    multi = (isOverlaid == true) ? 1.0 : 0.5;
+    for (unsigned int ee = 0; ee < nELEM; ++ee){
+        // TODO: assume structured mesh
+        elem_id = ELEM.row(ee);
+        VectorXd l1 = NODE.row(elem_id(1)) - NODE.row(elem_id(0));
+        VectorXd l2 = NODE.row(elem_id(2)) - NODE.row(elem_id(0));
+        ElemArea[ee] = std::abs(l1(0)*l2(1) - l2(0)*l1(1))*multi; 
+        // std::cout << ee << " : " << ElemArea[ee] << std::endl;
+    }
 }
 
 void FEAMesh::get_Mesh(int nVertices){
@@ -42,6 +62,8 @@ void FEAMesh::get_Mesh(int nVertices){
         this->ELEM = ELEMQ;
         this->NODE = NODEQ;
         dpn = 2, npe = 4, dpe = 8; // Quadmesh
+        this->nELEM = nELEMQ;
+        this->nNODE = nNODEQ;
         return;
     }
     if (isOverlaid == true){
@@ -49,15 +71,17 @@ void FEAMesh::get_Mesh(int nVertices){
         this->ELEM = ELEMQ;
         this->NODE = NODEQ;
         dpn = 6; npe = 3; dpe = 18; 
+        this->nELEM = nELEMQ;
+        this->nNODE = nNODEQ;
         return;
     }
 
     // Triangular mesh
-    int nELEM = ex*ey*4; // Lattice-shaped mesh (no override)
+    nELEM = ex*ey*4; // Lattice-shaped mesh (no override)
     // Matrix<double, nELEM, npe> ELEM; ELEM.fill(0);
     MatrixXi ELEM; ELEM.setZero(nELEM,npe);
 
-    unsigned int nNODE = nNODEQ + nELEMQ;
+    nNODE = nNODEQ + nELEMQ;
     // Matrix<double, nNODE, 3> NODE; 
     MatrixXd NODE; NODE.setZero(nNODE,3);
 
@@ -149,7 +173,7 @@ void FEAMesh::set_Force(std::vector<Material_ABD> & material, MatrixXd eps0, Mat
     }
 }
 
-void FEAMesh::to_vtk(MatrixXd & u){
+void FEAMesh::to_vtk(MatrixXd & u, const char* str){
     int cell_type;
     switch (npe){
         case 3: //elemType = 'triangle';
@@ -166,7 +190,7 @@ void FEAMesh::to_vtk(MatrixXd & u){
     int nELEM = ELEM.rows();
 
     std::ofstream myfile;
-    myfile.open("mesh_with_fields.vtk");
+    myfile.open(str);
     myfile << "# vtk DataFile Version 3.0\n" ;
 	myfile << "vtk output\n" ;
 	myfile << "ASCII\n\n" ;
@@ -225,3 +249,60 @@ void FEAMesh::to_vtk(MatrixXd & u){
 	myfile.close();
 }
 
+void FEAMesh::to_vtk(MatrixXd & u){
+    this->to_vtk(u, "mesh_without_field.vtk");
+}
+
+void FEAMesh::to_vtk(){
+    int cell_type;
+    switch (npe){
+        case 3: //elemType = 'triangle';
+                cell_type = 5;
+        case 4: // elemType = 'quadrilateral';
+                cell_type = 9;
+    }
+    int npe_draw = npe;
+    if (isOverlaid == true) {
+        cell_type = 9;
+        npe_draw = 4;
+    }
+    int nNODE = NODE.rows();
+    int nELEM = ELEM.rows();
+
+    std::ofstream myfile;
+    myfile.open("mesh_without_fields.vtk");
+    myfile << "# vtk DataFile Version 3.0\n" ;
+	myfile << "vtk output\n" ;
+	myfile << "ASCII\n\n" ;
+	myfile << "DATASET UNSTRUCTURED_GRID" ;
+	myfile << "\nPOINTS " << nNODE << " double" ;
+
+    // NODE
+    myfile << NODE;
+
+    // ELEMENT
+    int nCellPoints = nELEM * (npe_draw + 1);
+	myfile << "\n\nCELLS " << nELEM << " " << nCellPoints;
+	
+	for (int i = 0 ; i < nELEM ; ++i) {
+        myfile << "\n" << npe_draw << " " << ELEM.row(i) << " ";
+    }
+
+	myfile.close();
+}
+
+void FEAMesh::ComputeCentroids(){
+    // Overlaid case 
+    MatrixXi elem_id;
+    // double multiple = (isOverlaid == true) ? 4.0 : 3.0;
+    int nE = ELEM.cols();
+    for (unsigned int ee = 0; ee < nELEM; ++ee){
+           elem_id = ELEM.row(ee);
+           
+           for (unsigned int mmm = 0; mmm < nE; ++mmm){
+               Centeroids(ee,0) += NODE(elem_id(mmm),0)/double(nE);
+               Centeroids(ee,1) += NODE(elem_id(mmm),1)/double(nE);
+               Centeroids(ee,2) += NODE(elem_id(mmm),2)/double(nE);
+           }
+    }    
+}

@@ -108,9 +108,9 @@ void LinShell::compute()
             FNM_r.topRows(3) = (FNM.block(ee, 0, 1, 3) * Q.transpose()).transpose();
             FNM_r.bottomRows(3) = (FNM.block(ee, 3, 1, 3) * Q.transpose()).transpose();
             Material_ABD Mater_e;
-            Mater_e.Amat = Q * Amat * Q.transpose();
-            Mater_e.Dmat = Q * Dmat * Q.transpose();
-            Mater_e.Bmat = Q * Bmat * Q.transpose();
+            Mater_e.Amat = Q * Amat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Dmat = Q * Dmat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Bmat = Q * Bmat * Q.transpose() * feaMesh.areafraction[ee];
 
             CoreElement coreelem = f_core_element(xycoord, Mater_e, FNM_r);
             // CoreElement coreelem(xycoord, Mater_e, FNM_r); // FIX
@@ -274,9 +274,9 @@ std::vector<GptsCompl> LinShell::get_GaussCompl(MatrixXd &GU_u6)
             FNM_r.topRows(3) = (FNM.block(ee, 0, 1, 3) * Q.transpose()).transpose();
             FNM_r.bottomRows(3) = (FNM.block(ee, 3, 1, 3) * Q.transpose()).transpose();
             Material_ABD Mater_e;
-            Mater_e.Amat = Q * Amat * Q.transpose();
-            Mater_e.Dmat = Q * Dmat * Q.transpose();
-            Mater_e.Bmat = Q * Bmat * Q.transpose();
+            Mater_e.Amat = Q * Amat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Dmat = Q * Dmat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Bmat = Q * Bmat * Q.transpose() * feaMesh.areafraction[ee];
 
             // comptue gauss points in global coordinate
             gptsSens[ee * elem_order.rows() + kk].x = (X(0, 0) + X(0, 1) + X(0, 2)) / 3.0;

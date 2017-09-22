@@ -72,7 +72,7 @@ int main()
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
 
-    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1]/2, 1e-3, 1e-3);
+    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1], 1e-3, 1e-3);
 
     Force_Fix(Xtip[0], 3) = -10;
 
