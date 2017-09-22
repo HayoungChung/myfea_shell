@@ -95,6 +95,17 @@ int main()
 
     u = spQR.solve(lin_shell.Res);
     u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
+    std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
+    
+    std::ofstream sfile("sens_test.txt");
+    if (sfile.is_open())
+    {
+        for (int ii = 0; ii < gptsCompl.size() ; ++ii)
+        {
+            sfile << "(" << gptsCompl[ii].x << ", " << gptsCompl[ii].y <<
+            ", " << gptsCompl[ii].z << ") " << gptsCompl[ii].sens << std::endl;
+        }
+    }
 
     // Post-process
     feaMesh.to_vtk(u6);
@@ -113,4 +124,6 @@ int main()
         Ffile << "Res: \n";
         Ffile << lin_shell.Res << std::endl; 
     }
+    std::cout << "end" << std::endl;
+    return 0;
 }
