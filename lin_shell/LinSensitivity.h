@@ -25,8 +25,7 @@ private:
     std::vector<GptsCompl> gaussComplSens;
     FEAMesh& feaMesh;
     void leastsquares();
-    unsigned int nGpts, nBpts;
-    
+    unsigned int nGpts, nBpts;    
 
 };
 

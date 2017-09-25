@@ -13,18 +13,18 @@ namespace LSM = M2DO_LSM;
 int main()
 {
     Matrix3d eye3 = Matrix3d::Identity();
-
+    bool isOverlaid = false;
+    
     int npe = 3, dpn = 6, dpe = 18;
-    bool isOverlaid = true;
-
+    
     // Mesh generation
     const double Lxy[2] = {40., 20.};
     const int exy[2] = {40, 20};
     const double h = 0.5; // the h/L < 0.1
-
+    
     LSM::Mesh lsmMesh(exy[0], exy[1], false);
     double meshArea = lsmMesh.width * lsmMesh.height;
-
+    
     std::vector<LSM::Hole> holes;
     holes.push_back(LSM::Hole(10, 10, 3));
     holes.push_back(LSM::Hole(20, 10, 3));
@@ -71,6 +71,8 @@ int main()
     levelSet.reinitialise();
     LSM::InputOutput io;
     LSM::Boundary boundary(levelSet);
+    
+    std::cout << "meshing fea \n";
 
     FEAMesh feaMesh(Lxy, exy, isOverlaid);
     const unsigned int nELEM = feaMesh.ELEM.rows();
@@ -108,6 +110,7 @@ int main()
     }
 
     // BC
+    std::cout << "BCs in fea \n";
     double posX = 0, posY = 0, Xtol = 1e-3, Ytol = 1e3; // Dirichlet.
     std::vector<int> Xlo = feaMesh.get_nodeID(posX, posY, Xtol, Ytol);
     std::vector<int> BCtmp;
@@ -148,6 +151,7 @@ int main()
     for (unsigned int n_iterations = 0; n_iterations < MAXITER; n_iterations++)
     {
         // =========== SOLVE ======================== //
+        std::cout << "discretizing in LS \n";
         boundary.discretise();
         boundary.computeAreaFractions();
 
@@ -160,18 +164,24 @@ int main()
             // feaMesh.areafraction[ee] = 1.0; // if triangulated
         }
 
+        std::cout << "fea assemblying in LS \n";
         // f_lin_shell(feaMesh, material, force, GKT, Res);
         LinShell lin_shell(feaMesh, material, force);
         lin_shell.compute();
 
-        SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spQR;
-        lin_shell.sGKT.makeCompressed();
-        spQR.compute(lin_shell.sGKT);
+        std::cout << "making compressed (sparse) \n";
+        //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
+        ConjugateGradient<SparseMatrix<double> > spsolver;
+        lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
+        spsolver.compute(lin_shell.sGKT);
 
         MatrixXd u;
         MatrixXd u6;
 
-        u = spQR.solve(lin_shell.Res);
+        std::cout << "starting lin solve\n";
+        u = spsolver.solve(lin_shell.Res);
+        std::cout << "end of lin solve\n";
+
         u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
         std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
 
@@ -179,8 +189,32 @@ int main()
         dispFile << u6 << std::endl;
         dispFile.close();
 
+        /*
+        // WIP: checking if the locations of the Gpts are the source of the unsymm.
+        // this leads to rank dificiency... 
+        std::vector<GptsCompl> elemCompl(feaMesh.ELEM.rows()); // elem-wise
+        double x_temp, y_temp, s_temp;
+        for (unsigned int ee = 0; ee < feaMesh.ELEM.rows(); ee++)
+        {
+            x_temp = 0; y_temp = 0; s_temp = 0;
+            
+            x_temp = gptsCompl[ee*4].x + gptsCompl[ee*4+1].x + gptsCompl[ee*4+2].x + gptsCompl[ee*4+3].x;
+            x_temp /= 4;
+            y_temp = gptsCompl[ee*4].y + gptsCompl[ee*4+1].y + gptsCompl[ee*4+2].y + gptsCompl[ee*4+3].y;
+            y_temp /= 4;
+            s_temp = gptsCompl[ee*4].sens + gptsCompl[ee*4+1].sens + gptsCompl[ee*4+2].sens + gptsCompl[ee*4+3].sens;
+            s_temp /= 4;
+            
+            elemCompl[ee].x = x_temp;
+            elemCompl[ee].y = y_temp;
+            elemCompl[ee].sens = s_temp;
+        }
+        feaMesh.isOverlaid = false;
+        LinSensitivity linSens(feaMesh, elemCompl); 
+        feaMesh.isOverlaid = true;
+        // end of WIP
+        */
         LinSensitivity linSens(feaMesh, gptsCompl);
-
         std::ofstream gsfile("gpts_sens_test.txt");
         for (unsigned int ii = 0; ii < gptsCompl.size(); ii++)
         {
@@ -189,7 +223,8 @@ int main()
         gsfile.close();
 
         std::ofstream bsfile("bpts_sens_test.txt");
-
+        
+        std::cout << "starting least square interpolation \n";
         for (int i = 0; i < boundary.points.size(); i++)
         {
             std::vector<double> bPoint(2, 0);
@@ -198,7 +233,7 @@ int main()
 
             // Interpolate Guass point sensitivities by least squares.
             // TOFIX: currently 2D
-            boundary.points[i].sensitivities[0] = -linSens.ComputeBoundaryPointSensitivity2D(bPoint, 2, 5, 0.01);
+            boundary.points[i].sensitivities[0] = -linSens.ComputeBoundaryPointSensitivity2D(bPoint, 4, 5, 0.01);
 
             if (bsfile.is_open())
             {
@@ -220,6 +255,7 @@ int main()
             // }
         }
         bsfile.close();
+        std::cout << "end of the least square interpolation \n";
 
         double timeStep;
 
