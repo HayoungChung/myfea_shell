@@ -25,6 +25,8 @@ int main()
     const unsigned int nNODE = feaMesh.NODE.rows();
     const unsigned nDOF = nNODE * dpn;
     feaMesh.areafraction.assign(nELEM,1);
+
+    std::cout << "nELEM, nNODE : " << nELEM << ", " << nNODE << std::endl;
     // Material
 
     const double E = 1.2e6, v = 0.3;
@@ -73,18 +75,17 @@ int main()
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
 
-    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1]/2, 1e-3, 1e-3);
+    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1], 1e-3, 1e-3);
 
     for (int tt = 0; tt < Xtip.size(); tt++)
     {
         Force_Fix(Xtip[tt], 1) = -1;
+        Force_Fix(Xtip[tt], 2) = -1;
     }
 
     Force force;
     force.NM = Force_NM;
     force.fix = Force_Fix;
-
-    // Res = VectorXd::Zero(nDOF);
 
     // f_lin_shell(feaMesh, material, force, GKT, Res);
     LinShell lin_shell(feaMesh, material, force);
@@ -104,7 +105,7 @@ int main()
     std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
     std::cout << "ending lin solve\n";
     
-    std::ofstream sfile("sens_test.txt");
+    std::ofstream sfile("sens_test_non.txt");
     if (sfile.is_open())
     {
         for (int ii = 0; ii < gptsCompl.size() ; ++ii)
@@ -121,8 +122,8 @@ int main()
     std::cout << "(" << u.rows() << ", " << u.cols() << ")" << std::endl;
     // std::cout << u << std::endl;
 
-    std::ofstream Dfile("disp_test.txt");
-    std::ofstream Ffile("force_test.txt");
+    std::ofstream Dfile("disp_test_non.txt");
+    std::ofstream Ffile("force_test_non.txt");
     if (Dfile.is_open())
     {
         Dfile << u6 << std::endl;
