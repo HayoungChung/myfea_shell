@@ -15,17 +15,17 @@ int main()
 {
     Matrix3d eye3 = Matrix3d::Identity();
     bool isOverlaid = true;
-    
+
     int npe = 3, dpn = 6, dpe = 18;
-    
+
     // Mesh generation
     const double Lxy[2] = {80., 40.};
     const int exy[2] = {80, 40};
-    const double h = 0.5; // the h/L < 0.1
-    
+    const double h = 2; // the h/L < 0.1
+
     LSM::Mesh lsmMesh(exy[0], exy[1], false);
     double meshArea = lsmMesh.width * lsmMesh.height;
-    
+
     std::vector<LSM::Hole> holes;
     // holes.push_back(LSM::Hole(10, 10, 3));
     // holes.push_back(LSM::Hole(20, 10, 3));
@@ -72,7 +72,7 @@ int main()
     levelSet.reinitialise();
     LSM::InputOutput io;
     LSM::Boundary boundary(levelSet);
-    
+
     std::cout << "meshing fea \n";
 
     FEAMesh feaMesh(Lxy, exy, isOverlaid);
@@ -137,18 +137,26 @@ int main()
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
 
-    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1] / 2, 1e-3, 1e-3);
+    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1]/2, 1e-3, 1e-3);
 
     for (int tt = 0; tt < Xtip.size(); tt++)
     {
-        Force_Fix(Xtip[tt], 2) = -50;
+        Force_Fix(Xtip[tt], 1) = -1;
+        Force_Fix(Xtip[tt], 4) = -1;
     }
+
+    // std::vector<int> Xtip2 = feaMesh.get_nodeID(Lxy[0], 0, 1e-3, 1e-3);
+
+    // for (int tt = 0; tt < Xtip2.size(); tt++)
+    // {
+    //     Force_Fix(Xtip2[tt], 2) = -1;
+    // }
 
     Force force;
     force.NM = Force_NM;
     force.fix = Force_Fix;
     io.saveLevelSetVTK(0, levelSet);
-    unsigned int MAXITER = 100;
+    unsigned int MAXITER = 200;
     for (unsigned int n_iterations = 0; n_iterations < MAXITER; n_iterations++)
     {
         // =========== SOLVE ======================== //
@@ -172,7 +180,7 @@ int main()
 
         std::cout << "making compressed (sparse) \n";
         //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
-        ConjugateGradient<SparseMatrix<double> > spsolver;
+        ConjugateGradient<SparseMatrix<double>> spsolver;
         lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
         spsolver.compute(lin_shell.sGKT);
 
@@ -190,7 +198,6 @@ int main()
         dispFile << u6 << std::endl;
         dispFile.close();
         feaMesh.to_vtk(u6);
-        
 
         /*
         // WIP: checking if the locations of the Gpts are the source of the unsymm.
@@ -223,12 +230,12 @@ int main()
         std::ofstream gsfile("gpts_sens_test.txt");
         for (unsigned int ii = 0; ii < gptsCompl.size(); ii++)
         {
-            gsfile << gptsCompl[ii].x << " " << gptsCompl[ii].y << " " << gptsCompl[ii].sens  << std::endl;
+            gsfile << gptsCompl[ii].x << " " << gptsCompl[ii].y << " " << gptsCompl[ii].sens << std::endl;
         }
         gsfile.close();
 
         std::ofstream bsfile("bpts_sens_test.txt");
-        
+
         std::cout << "starting least square interpolation \n";
         for (int i = 0; i < boundary.points.size(); i++)
         {
@@ -307,7 +314,7 @@ int main()
         //     // Reinitialise at least every 20 iterations.
         //     if (nReinit == 20)
         //     {
-        // levelSet.reinitialise();
+        levelSet.reinitialise();
         //         nReinit = 0;
         //     }
         // }
