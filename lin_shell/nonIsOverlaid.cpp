@@ -13,7 +13,7 @@ int main()
     Matrix3d eye3 = Matrix3d::Identity();
 
     int npe = 3, dpn = 6, dpe = 18;
-    bool isOverlaid = true;
+    bool isOverlaid = false;
 
     // Mesh generation
     const double Lxy[2] = {80., 40.};
