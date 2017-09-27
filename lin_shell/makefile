@@ -24,3 +24,7 @@ m2doSens:
 nonIsOverlaid:
 	g++ -O3 -fopenmp -W -std=c++14 -c nonIsOverlaid.cpp
 	g++ -fopenmp -o nonIsOverlaid nonIsOverlaid.o lin_shell.o m2do_lin_sensitivity.o FEA_hy.o f_core_element.o f_DKT_OPT.o -I/home/hac210/00.Working/0.Working/13.GeometricNonlinear/M2DO_LSM/include -I/home/hac210/00.Working/0.Working/eigen3/Eigen -lblas -llapack -L /usr/local/lib -lnlopt
+
+checkRadMesh:
+	g++ -O3 -fopenmp -W -std=c++14 -c mesh_test.cpp
+	g++ -fopenmp -o mesh_test mesh_test.o FEA_hy.o -I/home/hac210/00.Working/0.Working/eigen3/Eigen 
