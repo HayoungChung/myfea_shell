@@ -1,4 +1,6 @@
 #include "./m2do_lin_sensitivity.h"
+#include <fstream>
+#include <iostream>
 
 // Constructor
 SensitivityAnalysis::SensitivityAnalysis(FEAMesh& feaMesh_, std::vector<GptsCompl> &gptsCompls_) : gptsCompls(gptsCompls_), feaMesh(feaMesh_)
@@ -50,6 +52,8 @@ void SensitivityAnalysis::GptsCompl2sensitivities()
     int nel = feaMesh.ELEM.rows();   // Total number of elements
     int ngauss = pow(sens_order, 2); // Total number of gauss points
 
+    // std::ofstream gsfile("sens_m2do.txt");
+    
     for (int ee = 0; ee < nel; ee++)
     {
         for (int gg = 0; gg < ngauss; gg++)
@@ -57,8 +61,11 @@ void SensitivityAnalysis::GptsCompl2sensitivities()
             sensitivities[ee].dx[gg] = gptsCompls[ee * ngauss + gg].sens;
             sensitivities[ee].dxcoord[gg][0] = gptsCompls[ee * ngauss + gg].x;
             sensitivities[ee].dxcoord[gg][1] = gptsCompls[ee * ngauss + gg].y;
+            // gsfile << sensitivities[ee].dxcoord[gg][0] << " " << sensitivities[ee].dxcoord[gg][1] << 
+            // sensitivities[ee].dx[gg] << std::endl;
         }
     }
+    // gsfile.close();
 }
 
 // LEAST SQUARES FUNCTIONALITIES
@@ -155,6 +162,7 @@ void SensitivityAnalysis::ComputeBoundarySensitivities(double radius, std::vecto
     {
         // Sensitivities at the boundaries for islands are zero.
         boundarySens.push_back(0.0);
+        std::cout << " island found at (" << bPoint[0] << ", " << bPoint[1] << std::endl;
         return;
     }
 

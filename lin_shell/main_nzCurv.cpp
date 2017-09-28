@@ -34,6 +34,14 @@ int main()
     const unsigned nDOF = nNODE * dpn;
     feaMesh.areafraction.assign(nELEM, 1);
 
+    std::ofstream eFile("elem.txt");
+    eFile << feaMesh.ELEM << std::endl;
+    eFile.close();
+
+    std::ofstream nFile("node.txt");
+    nFile << feaMesh.NODE << std::endl;
+    nFile.close();
+
     const double E = 1.2e6, v = 0.3;
     MatrixXd Cijkl(3, 3), Amat(3, 3), Dmat(3, 3), Bmat(3, 3);
     Cijkl << 1., v, 0., v, 1, 0., 0., 0., 0.5 * (1 - v);
