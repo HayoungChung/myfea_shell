@@ -46,8 +46,8 @@ class FEAMesh{
     bool isOverlaid;
     std::vector<double> areafraction;
     std::vector<double> ElemArea;
-
-    private:
+    
+private:
     
     void ComputeCentroids();
     void set_ElemArea();

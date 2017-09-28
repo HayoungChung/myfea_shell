@@ -7,6 +7,9 @@
 #include "./lin_shell.h"
 #include "./ma57_solver.h"
 
+#define PI 3.141592
+
+using namespace std;
 using namespace Eigen;
 
 int main()
@@ -14,21 +17,32 @@ int main()
     Matrix3d eye3 = Matrix3d::Identity();
 
     int npe = 3, dpn = 6, dpe = 18;
-    bool isOverlaid = true;
+    bool isOverlaid = false;
+    bool isCurved = true; //true;
 
-    // Mesh generation
-    const double Lxy[2] = {160., 80.};
-    const int exy[2] = {160, 80};
-    const double h = 1; // the h/L < 0.1
+    const double max_theta = PI / 8;
+    const double Length = 80.;
+    const double R0 = Length / max_theta;
+
+    const double Lxy[2] = {max_theta, 40.0}; // angle[radian], y dimension
+    const int exy[2] = {80, 40};
+    const double h = 2; // the h/L < 0.1
 
     FEAMesh feaMesh(Lxy, exy, isOverlaid);
     const unsigned int nELEM = feaMesh.ELEM.rows();
     const unsigned int nNODE = feaMesh.NODE.rows();
     const unsigned nDOF = nNODE * dpn;
     feaMesh.areafraction.assign(nELEM, 1);
-    // Material
 
-    const double E = 1, v = 0.3;
+    std::ofstream eFile("elem.txt");
+    eFile << feaMesh.ELEM << std::endl;
+    eFile.close();
+
+    std::ofstream nFile("node.txt");
+    nFile << feaMesh.NODE << std::endl;
+    nFile.close();
+
+    const double E = 1.2e6, v = 0.3;
     MatrixXd Cijkl(3, 3), Amat(3, 3), Dmat(3, 3), Bmat(3, 3);
     Cijkl << 1., v, 0., v, 1, 0., 0., 0., 0.5 * (1 - v);
     Cijkl *= E / (1 - v * v);
@@ -74,11 +88,11 @@ int main()
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
 
-    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1]/2, 1e-3, 1e-3);
+    std::vector<int> Xtip = feaMesh.get_nodeID(Lxy[0], Lxy[1] / 2, 1e-3, 1e-3);
 
     for (int tt = 0; tt < Xtip.size(); tt++)
     {
-        Force_Fix(Xtip[tt], 1) = -1;
+        Force_Fix(Xtip[tt], 0) = +1;
         // Force_Fix(Xtip[tt], 2) = -1;
     }
 
@@ -86,31 +100,27 @@ int main()
     force.NM = Force_NM;
     force.fix = Force_Fix;
 
-    // Res = VectorXd::Zero(nDOF);
-
+    // generate to radian
+    if (isCurved == true)
+    {
+        MatrixXd Rtheta = feaMesh.NODE;
+        for (unsigned int nn = 0; nn < feaMesh.NODE.rows(); nn++)
+        {
+            feaMesh.NODE(nn, 0) = R0 * sin(Rtheta(nn, 0));
+            feaMesh.NODE(nn, 1) = Rtheta(nn, 1);
+            feaMesh.NODE(nn, 2) = R0 * cos(Rtheta(nn, 0));
+        }
+        MatrixXd u3 = MatrixXd::Zero(nNODE, 3);
+        feaMesh.to_vtk(u3);
+    }
     // f_lin_shell(feaMesh, material, force, GKT, Res);
+    std::cout << "assemblying...\n";
+
     LinShell lin_shell(feaMesh, material, force);
     lin_shell.compute();
 
-    // this is an old version of CG solver
-    //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
-
-    // std::cout << "starting CG lin solve\n";
-    // ConjugateGradient<SparseMatrix<double>> spsolver;
-    // lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
-    // spsolver.compute(lin_shell.sGKT);
-    // MatrixXd u_old;
-    // MatrixXd u6_old;
-    // u_old = spsolver.solve(lin_shell.Res);
-    // u6_old = Map<MatrixXd>(u_old.data(), 6, nNODE).transpose();
-    // std::cout << "ending lin solve\n";
-    // std::ofstream Dofile("disp0_test.txt");
-    // if (Dofile.is_open())
-    // {
-    //     Dofile << u6_old << std::endl;
-    // }
-
-    // WIP: MA57 solver
+    std::cout << "done\n";
+    // ma57
     std::cout << "starting ma57 lin solve\n";
     SparseMatrix<double> K_tri = lin_shell.sGKT.triangularView<Lower>();
     MA57Solver ma57(true, false);
@@ -121,15 +131,21 @@ int main()
     u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
     std::cout << "ending lin solve\n";
 
-    std::ofstream Dfile("disp_test.txt");
-    if (Dfile.is_open())
-    {
-        Dfile << u6 << std::endl;
-    }
-    // WIP
+    // //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
+    // ConjugateGradient<SparseMatrix<double>> spsolver;
+    // lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
+    // spsolver.compute(lin_shell.sGKT);
 
+    // MatrixXd u;
+    // MatrixXd u6;
+    // std::cout << "starting lin solve\n";
+
+    // u = spsolver.solve(lin_shell.Res);
+    // u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
+    // std::cout << "ending lin solve\n";
+    
     std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
-    std::ofstream sfile("sens_test.txt");
+    std::ofstream sfile("sens_test_non.txt");
     if (sfile.is_open())
     {
         for (int ii = 0; ii < gptsCompl.size(); ++ii)
@@ -144,8 +160,13 @@ int main()
     feaMesh.to_vtk(u6);
     std::cout << "(" << u.rows() << ", " << u.cols() << ")" << std::endl;
     // std::cout << u << std::endl;
-    
-    std::ofstream Ffile("force_test.txt");
+
+    std::ofstream Dfile("disp_test_non.txt");
+    std::ofstream Ffile("force_test_non.txt");
+    if (Dfile.is_open())
+    {
+        Dfile << u6 << std::endl;
+    }
     if (Ffile.is_open())
     {
         Ffile << force.fix << std::endl;

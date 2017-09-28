@@ -270,7 +270,7 @@ void FEAMesh::to_vtk(){
     int nELEM = ELEM.rows();
 
     std::ofstream myfile;
-    myfile.open("mesh_without_fields.vtk");
+    myfile.open("mesh_plots.vtk");
     myfile << "# vtk DataFile Version 3.0\n" ;
 	myfile << "vtk output\n" ;
 	myfile << "ASCII\n\n" ;

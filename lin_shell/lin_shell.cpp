@@ -215,7 +215,7 @@ std::vector<GptsCompl> LinShell::get_GaussCompl(MatrixXd &GU_u6)
     else
     {
         elem_order << 0, 1, 2;
-        gptsSens.resize(nELEM * 3);
+        gptsSens.resize(nELEM);
     }
 
     for (unsigned int ee = 0; ee < nELEM; ++ee)
