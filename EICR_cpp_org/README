@@ -1,2 +1,8 @@
-same as toQuad branch comitted 15:00 on May 15
+a newer version of eigen3 (/packages/eigen3_new) is not compatible with the current EICR code
+
+1. produces size-mismatch error
+2. error in static assertion 
+
+This is older version, and only contains eicr components
+NEWER: []EICR
 

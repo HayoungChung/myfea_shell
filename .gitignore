@@ -4,6 +4,10 @@
 *.o
 *.obj
 
+# temporary texts & vtks & plots
+*.txt
+*.vtk
+
 # Precompiled Headers
 *.gch
 *.pch
@@ -26,3 +30,10 @@
 *.exe
 *.out
 *.app
+
+# Temporary matlab
+*.m~
+
+# Folders for saves
+./plots/
+./txts/
