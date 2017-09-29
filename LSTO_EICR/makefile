@@ -5,7 +5,7 @@ CFLAGS = -O3 -g -std=c++11 -c
 
 
 INC  = -I/home/hac210/Dropbox/packages/01.M2DO_code/M2DO_LSM/include -I/home/hac210/Dropbox/packages/eigen3/Eigen
-LIB = -lblas -llapack -L /usr/local/lib -lnlopt
+LIB = -lblas -llapack -L /usr/local/lib -lnlopt -lmetis -lma57 -lgfortran -larpack -lblas -lmetis
 
 TARGET = optim_base
 DEBUG  = optim_debug
