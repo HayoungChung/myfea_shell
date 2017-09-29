@@ -1,0 +1,5 @@
+to run:
+
+./optim_base (n)
+
+n is a point load to the structure
