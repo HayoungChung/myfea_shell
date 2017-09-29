@@ -86,8 +86,8 @@ int main(int argc, char *argv[]){
 	force.NM  = MatrixXd::Zero(nELEM,feaMesh.dpn); 
 	force.fix = MatrixXd::Zero(nNODE,feaMesh.dpn); 
 	 
-	feaMesh.set_Force(1,tipnode1,-std::stod(argv[1]), force.fix); 
-	//feaMesh.set_Force(1,tipnode1,-1, force.fix); 
+	// feaMesh.set_Force(1,tipnode1,-std::stod(argv[1]), force.fix); 
+	feaMesh.set_Force(1,tipnode1,-1, force.fix); 
  
 	double curv_ = 0.0;//-2*PI / Lxy[0]/4; 
 	Vector3d eps0, kappa0; 
@@ -231,7 +231,8 @@ int main(int argc, char *argv[]){
 			VectorXd GU_Rv = EICR_SHELL::fmat2store(GU_R); 
 			// output: GU_u, GU_Rv 
 			VectorXd p_Adjoint; 
-			p_Adjoint = f_nlgeom(material, force, feaMesh, option, GU_u, GU_Rv); 
+			p_Adjoint = f_nlgeom(material, force, feaMesh, option, 
+				GU_u, GU_Rv); 
 				
 			compliance = (GU_u.cwiseProduct(force.fix.leftCols(3))).sum();
 

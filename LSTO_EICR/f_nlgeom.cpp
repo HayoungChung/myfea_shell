@@ -1,5 +1,5 @@
 #include "./f_nlgeom.h"
-#include "./ma57_solver.h"
+#include "./ma57_solver.h" // NOTE: EICR seems unsymmtric (a speed of ma57 ~ iterative solver.)
 
 VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,class FEAMesh & feaMesh, 
                     struct OPTION & option, MatrixXd & GU_u, VectorXd & GU_Rv){
