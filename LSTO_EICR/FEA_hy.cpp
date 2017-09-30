@@ -8,7 +8,7 @@ FEAMesh::FEAMesh(const double* _Lxy, const int* _exy, bool isOverlaid){
     get_Mesh(3);
     // initialize properties
     areafraction.reserve(nELEM);
-    Centeroids = MatrixXd::Zero(nELEM, 3);
+    centroid = MatrixXd::Zero(nELEM, 3);
     ElemArea.reserve(nELEM);
     set_ElemArea();
     ComputeCentroids();
@@ -300,9 +300,9 @@ void FEAMesh::ComputeCentroids(){
            elem_id = ELEM.row(ee);
            
            for (unsigned int mmm = 0; mmm < nE; ++mmm){
-               Centeroids(ee,0) += NODE(elem_id(mmm),0)/double(nE);
-               Centeroids(ee,1) += NODE(elem_id(mmm),1)/double(nE);
-               Centeroids(ee,2) += NODE(elem_id(mmm),2)/double(nE);
+               centroid(ee,0) += NODE(elem_id(mmm),0)/double(nE);
+               centroid(ee,1) += NODE(elem_id(mmm),1)/double(nE);
+               centroid(ee,2) += NODE(elem_id(mmm),2)/double(nE);
            }
     }    
 }

@@ -36,7 +36,7 @@ class FEAMesh{
     void set_Force(std::vector<Material_ABD> & material, MatrixXd eps0, MatrixXd kappa0, MatrixXd & force_NM); // NM
 
     // comptue centeroids (for least-square analysis)
-    MatrixXd Centeroids;
+    MatrixXd centroid;
 
     void to_vtk(MatrixXd & u, const char* str);
     void to_vtk(MatrixXd & u);
