@@ -12,6 +12,7 @@
 // #include "./../M2DO_LSM/include/M2DO_LSM.h" 
 #include "M2DO_LSM.h" 
 #include "EICR.h" 
+#include "./m2do_lin_sensitivity.h"
 // #define PI 3.14159265359 
  
 using namespace std ; 
@@ -86,8 +87,8 @@ int main(int argc, char *argv[]){
 	force.NM  = MatrixXd::Zero(nELEM,feaMesh.dpn); 
 	force.fix = MatrixXd::Zero(nNODE,feaMesh.dpn); 
 	 
-	// feaMesh.set_Force(1,tipnode1,-std::stod(argv[1]), force.fix); 
-	feaMesh.set_Force(1,tipnode1,-1, force.fix); 
+	feaMesh.set_Force(1,tipnode1,-std::stod(argv[1]), force.fix); 
+	// feaMesh.set_Force(1,tipnode1,-1, force.fix); 
  
 	double curv_ = 0.0;//-2*PI / Lxy[0]/4; 
 	Vector3d eps0, kappa0; 
@@ -112,7 +113,7 @@ int main(int argc, char *argv[]){
 	double moveLimit = 0.5; 
 	int maxIter = 200; 
 	double sampleInterval = 50; 
-	double maxArea = 0.4; 
+	double maxArea = 0.5; 
  
 	LSM::Mesh lsmMesh(Lxy[0], Lxy[1], false); 
 	double meshArea = lsmMesh.width * lsmMesh.height; 
@@ -239,7 +240,15 @@ int main(int argc, char *argv[]){
 			Sensitivity sens(feaMesh, material, GU_u, GU_Rv, p_Adjoint); 
 			// Compute compliance sensitivities (stress*strain) at the Gauss points. 
 			sens.ComputeComplianceSensitivities(Tolerance) ; 
-
+			
+			bool isLinear; 
+			if (n_iterations < 100) isLinear = true; 
+			else isLinear = false; 
+			
+			sens.to_gptSens(true);
+			
+			SensitivityAnalysis m2doLeastsquare(feaMesh, sens.gptsSens);
+			
 			double max_sens = 0, min_sens = 0; 
 			int max_i, min_i; 
 			
@@ -254,15 +263,12 @@ int main(int argc, char *argv[]){
 					bPoint[0] = boundary.points[i].coord.x; 
 					bPoint[1] = boundary.points[i].coord.y; 
 
-					// Interpolate Guass point sensitivities by least squares.
-					bool isLinear; // JUN16
-					if (n_iterations < 100) isLinear = false; 
-					else isLinear = false; 
-
-					double boundarySens = sens.ComputeBoundaryPointSensitivity(bPoint, radius, 5, isLinear, Tolerance); 
+					// double boundarySens = sens.ComputeBoundaryPointSensitivity(bPoint, radius, 5, isLinear, Tolerance); 
+					m2doLeastsquare.ComputeBoundarySensitivities(2, bPoint, 0.01); // pushing back boundarySens
+					
 					// sens.ComputeBoundarySensitivities(radius, bPoint) ; 
 
-					boundary.points[i].sensitivities[0] = -boundarySens ; 
+					boundary.points[i].sensitivities[0] = m2doLeastsquare.boundarySens[i]; // -boundarySens ; 
 					boundary.points[i].sensitivities[1] = -1 ; 
 					
 					#if __DEBUGFLAG__

@@ -59,9 +59,11 @@ VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,cla
     VectorXd del_xm_u = VectorXd::Zero(3*nNODE), del_xm_w = VectorXd::Zero(3*nNODE);
     EICR_SHELL eicr_shell(feaMesh);
     // SparseQR<SparseMatrix<double>, COLAMDOrdering<int> > spsolver;
-    // ConjugateGradient<SparseMatrix<double> > spsolver; 
+    ConjugateGradient<SparseMatrix<double> > spsolver; 
+    /*
     // WIP: ma57
     MA57Solver ma57(true, false);
+    */
 
     while (istep < MAX_STEP){
 
@@ -77,13 +79,15 @@ VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,cla
         if (std::abs(lambdaR-1) < 1e-3){ //RTOL){
             std::cout << "calculating Adjoint..." << std::endl;
             eicr_shell.assembly(GU_u, GU_Rv, material, force);
-            // WIP: ma57
-            // eicr_shell.sGKT.makeCompressed();
-            // spsolver.compute(eicr_shell.sGKT);
-            SparseMatrix<double> K_tri = eicr_shell.sGKT.triangularView<Lower>();
-            ma57.compute(K_tri);
-            VectorXd p_Adjoint = ma57.solve(GF_dof_map);
-            // VectorXd p_Adjoint = spsolver.solve(GF_dof_map); 
+            eicr_shell.sGKT.makeCompressed();
+            spsolver.compute(eicr_shell.sGKT);
+            /*
+            WIP: ma57
+            // SparseMatrix<double> K_tri = eicr_shell.sGKT.triangularView<Lower>();
+            // ma57.compute(K_tri);
+            // VectorXd p_Adjoint = ma57.solve(GF_dof_map);
+            */
+            VectorXd p_Adjoint = spsolver.solve(GF_dof_map); 
 
             // std::cout << "calculating sensitivity..." << std::endl;
             std::cout << "job finished" << std::endl;
@@ -154,14 +158,16 @@ VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,cla
                 }
             break;
             }
-            // WIP
-            // eicr_shell.sGKT.makeCompressed();
-            // spsolver.compute(eicr_shell.sGKT);
-            SparseMatrix<double> K_tri = eicr_shell.sGKT.triangularView<Lower>();
-            ma57.compute(K_tri);
+            eicr_shell.sGKT.makeCompressed();
+            spsolver.compute(eicr_shell.sGKT);
+            /*
+            WIP: ma57
+            // SparseMatrix<double> K_tri = eicr_shell.sGKT.triangularView<Lower>();
+            // ma57.compute(K_tri);
+            */
             try{
-                del_xm = ma57.solve(eicr_shell.Res);
-                // del_xm = spsolver.solve(eicr_shell.Res); 
+                // del_xm = ma57.solve(eicr_shell.Res);
+                del_xm = spsolver.solve(eicr_shell.Res); 
             }
             catch (...) {
                 if (option.logflag){

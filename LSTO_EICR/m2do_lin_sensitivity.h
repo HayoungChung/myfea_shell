@@ -2,7 +2,7 @@
 #define M2DO_LIN_SENSITIVITY_H
 
 #include "./FEA_hy.h"
-#include "./lin_shell.h"
+// #include "./lin_shell.h"
 
 // using namespace std ;
 using namespace Eigen;
@@ -14,7 +14,7 @@ extern "C" int dgels_(const char *trans, int *m, int *n, int *nrhs,
 
 // -------------------------------------------------------------------------------- //
 // SENSITIVITIES CLASS
-class Sensitivity {
+class M2DOSensitivity {
 
     private:
         //
@@ -146,7 +146,7 @@ private:
     double SolveLeastSquares(std::vector<LeastSquares>&, std::vector<double>&);
     
     int spacedim = 2;
-    std::vector<Sensitivity> sensitivities;
+    std::vector<M2DOSensitivity> sensitivities;
     
 
 };

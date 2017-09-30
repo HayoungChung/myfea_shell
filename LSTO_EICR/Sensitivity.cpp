@@ -1,171 +1,230 @@
 // this uses cauchy stress and p-induced strain
 // Jun21: add jacobian computation
 // Jun21_both_Jacob: add jacobian to linear... & x_R2 remove
-// Jun22 : only 2nd 
+// Jun22 : only 2nd
 #include "./Sensitivity.h"
 #include "./f_DKT_OPT.h"
-Sensitivity::Sensitivity(FEAMesh & feaMesh_, std::vector<Material_ABD> & material_, MatrixXd & GU_u_, VectorXd & GU_Rv_, VectorXd & p_Adjoint_) 
-: feaMesh(feaMesh_), material(material_), p_Adjoint(p_Adjoint_), GU_u(GU_u_), GU_Rv(GU_Rv_), EICR_SHELL(feaMesh_, 0) {
+Sensitivity::Sensitivity(FEAMesh &feaMesh_, std::vector<Material_ABD> &material_, MatrixXd &GU_u_, VectorXd &GU_Rv_, VectorXd &p_Adjoint_)
+    : feaMesh(feaMesh_), material(material_), p_Adjoint(p_Adjoint_), GU_u(GU_u_), GU_Rv(GU_Rv_), EICR_SHELL(feaMesh_, 0)
+{
     // this->GU_u = GU_u_;
     this->GU_R = fstore2mat(GU_Rv);
- 
+
     unsigned int nGPTS;
-    nGPTS = feaMesh.isOverlaid == true ? feaMesh.ELEM.rows()*4 : feaMesh.ELEM.rows();
-    
-    Gpts.resize(nGPTS,2); // TODO: assuming global domain is flat; 
-    GptsSensitivities.resize(nGPTS,4); // assume (nth term, sum)
-    result_cr.resize(nGPTS,6); // thickness integration (N, M)
-    strain_cr.resize(nGPTS,6); // eps, kappa
+    nGPTS = feaMesh.isOverlaid == true ? feaMesh.ELEM.rows() * 4 : feaMesh.ELEM.rows();
+
+    Gpts.resize(nGPTS, 2);              // TODO: assuming global domain is flat;
+    GptsSensitivities.resize(nGPTS, 4); // assume (nth term, sum)
+    result_cr.resize(nGPTS, 6);         // thickness integration (N, M)
+    strain_cr.resize(nGPTS, 6);         // eps, kappa
 }
 
-void Sensitivity::ComputeComplianceSensitivities(double Tolerance){ 
+void Sensitivity::ComputeComplianceSensitivities(double Tolerance)
+{
     // this->GU_u = GU_u;
     // this->GU_R = fstore2mat(GU_Rv);
 
     int nGPTS = Gpts.rows();
     DKT_OPT dkt_opt;
 
-    #if __DEBUGFLAG__
-        std::ofstream sigma_log;
-        sigma_log.open("stresses.txt");
-        sigma_log << "position x \t position y \t sigma_ \t sigma_at_T0 \n";
-        
-        std::ofstream delP_log; 
-        delP_log.open("strain.txt");
-        delP_log << "position x \t position y \t strain_ \t del_P_T0 \n";
-    #endif  
+#if __DEBUGFLAG__
+    std::ofstream sigma_log;
+    sigma_log.open("stresses.txt");
+    sigma_log << "position x \t position y \t sigma_ \t sigma_at_T0 \n";
 
-    int counter = 0; // counter for each element 
-    for (unsigned int ee = 0; ee < feaMesh.ELEM.rows(); ++ee){
-        elem_id0 = feaMesh.ELEM.row(ee); 
+    std::ofstream delP_log;
+    delP_log.open("strain.txt");
+    delP_log << "position x \t position y \t strain_ \t del_P_T0 \n";
+#endif
 
-        // if (feaMesh.areafraction[ee] < Tolerance) continue;       
-        
-        Vector3i elem_id; 
-        for (unsigned int kk = 0; kk < elem_order.rows(); ++kk){
-            for (unsigned int ppp = 0; ppp < 3; ++ppp ){
-                elem_id(ppp) = elem_id0(elem_order(kk,ppp));
+    int counter = 0; // counter for each element
+    for (unsigned int ee = 0; ee < feaMesh.ELEM.rows(); ++ee)
+    {
+        elem_id0 = feaMesh.ELEM.row(ee);
+
+        // if (feaMesh.areafraction[ee] < Tolerance) continue;
+
+        Vector3i elem_id;
+        for (unsigned int kk = 0; kk < elem_order.rows(); ++kk)
+        {
+            for (unsigned int ppp = 0; ppp < 3; ++ppp)
+            {
+                elem_id(ppp) = elem_id0(elem_order(kk, ppp));
             }
 
-            Matrix<double,3,3> X, u, x; 
-            for (int mmm = 0; mmm < 3; ++mmm){
+            Matrix<double, 3, 3> X, u, x;
+            for (int mmm = 0; mmm < 3; ++mmm)
+            {
                 X.col(mmm) = feaMesh.NODE.row(elem_id(mmm)).transpose();
                 u.col(mmm) = GU_u.row(elem_id(mmm)).transpose();
             }
             x = X + u;
-	double Jacobian;
-	Jacobian = getArea(x)/getArea(X);	
-            Matrix<double,9,3> Ra;
-            for (int nnn = 0; nnn < 3; ++nnn){
-                for (int mmm = 0; mmm < 3; ++mmm){
-                    Ra.row(3*nnn+mmm) = GU_R.row(elem_id(nnn)*3+mmm);
-                }    
-            }            
+            double Jacobian;
+            Jacobian = getArea(x) / getArea(X);
+            Matrix<double, 9, 3> Ra;
+            for (int nnn = 0; nnn < 3; ++nnn)
+            {
+                for (int mmm = 0; mmm < 3; ++mmm)
+                {
+                    Ra.row(3 * nnn + mmm) = GU_R.row(elem_id(nnn) * 3 + mmm);
+                }
+            }
 
             Matrix3d X_R, x_R;
             Matrix3d u_d;
-            Matrix<double,9,1> th_d;
-            Matrix<double,3,3> Q;
+            Matrix<double, 9, 1> th_d;
+            Matrix<double, 3, 3> Q;
             Matrix3d T0, T;
-            
+
             Filter_Def(X, u, Ra, X_R, x_R, u_d, th_d, T0, T);
 
             // Material of local element (stress and strain being voigt notation: note that shear = 2*eps12)
-            Q << T0(0,0)*T0(0,0), T0(0,1)*T0(0,1), T0(0,0)*T0(0,1),
-            T0(1,0)*T0(1,0), T0(1,1)*T0(1,1), T0(1,0)*T0(1,1),
-            2*T0(0,0)*T0(1,0), 2*T0(0,1)*T0(1,1), T0(0,0)*T0(1,1)+T0(0,1)*T0(1,0);
+            Q << T0(0, 0) * T0(0, 0), T0(0, 1) * T0(0, 1), T0(0, 0) * T0(0, 1),
+                T0(1, 0) * T0(1, 0), T0(1, 1) * T0(1, 1), T0(1, 0) * T0(1, 1),
+                2 * T0(0, 0) * T0(1, 0), 2 * T0(0, 1) * T0(1, 1), T0(0, 0) * T0(1, 1) + T0(0, 1) * T0(1, 0);
 
             // from corotational to initial (not global)
-            Matrix3d Rdot = T.transpose()*T0; // JUN10th. Final (R 계산)
+            Matrix3d Rdot = T.transpose() * T0; // JUN10th. Final (R 계산)
             Matrix3d Rotator;
-            Rotator <<  Rdot(0,0)*Rdot(0,0), Rdot(1,0)*Rdot(1,0), 2*Rdot(0,0)*Rdot(1,0),
-                        Rdot(0,1)*Rdot(0,1), Rdot(1,1)*Rdot(1,1), 2*Rdot(0,1)*Rdot(1,1), 
-                        Rdot(0,0)*Rdot(0,1), Rdot(1,0)*Rdot(1,1), Rdot(0,0)*Rdot(1,1)+Rdot(0,1)*Rdot(1,0); 
+            Rotator << Rdot(0, 0) * Rdot(0, 0), Rdot(1, 0) * Rdot(1, 0), 2 * Rdot(0, 0) * Rdot(1, 0),
+                Rdot(0, 1) * Rdot(0, 1), Rdot(1, 1) * Rdot(1, 1), 2 * Rdot(0, 1) * Rdot(1, 1),
+                Rdot(0, 0) * Rdot(0, 1), Rdot(1, 0) * Rdot(1, 1), Rdot(0, 0) * Rdot(1, 1) + Rdot(0, 1) * Rdot(1, 0);
             // Rotator = Rdot; // Jun9 + noRR
 
-            MatrixXd Q2(6,6);
-            Q2 << Rotator, MatrixXd::Zero(3,3), MatrixXd::Zero(3,3), Rotator;  // cauchy stress = R'*sigma_CR*R // Zero: jun13_Zero (before=Iden)
+            MatrixXd Q2(6, 6);
+            Q2 << Rotator, MatrixXd::Zero(3, 3), MatrixXd::Zero(3, 3), Rotator; // cauchy stress = R'*sigma_CR*R // Zero: jun13_Zero (before=Iden)
 
-            Matrix<double,6,1> Fnm_zeros;
+            Matrix<double, 6, 1> Fnm_zeros;
             Fnm_zeros.fill(0);
-            
+
             Material_ABD Mater_e;
-            Mater_e.Amat = Q*material[ee].Amat*Q.transpose();
-            Mater_e.Dmat = Q*material[ee].Dmat*Q.transpose();
-            Mater_e.Bmat = Q*material[ee].Bmat*Q.transpose();
+            Mater_e.Amat = Q * material[ee].Amat * Q.transpose();
+            Mater_e.Dmat = Q * material[ee].Dmat * Q.transpose();
+            Mater_e.Bmat = Q * material[ee].Bmat * Q.transpose();
 
             FilteredP p_d; // corotational coordinate
             p_d.membrane << u_d(0), u_d(1), th_d(2), u_d(3), u_d(4), th_d(5), u_d(6), u_d(7), th_d(8);
-            p_d.bending  << u_d(2), th_d(0), th_d(1), u_d(5), th_d(3), th_d(4), u_d(8), th_d(6), th_d(7);
+            p_d.bending << u_d(2), th_d(0), th_d(1), u_d(5), th_d(3), th_d(4), u_d(8), th_d(6), th_d(7);
 
             FilteredP adj_e; // Global coordinate -> TODO: to initial coord. T0
-            Matrix<double,9,1> adj_undf1_, adj_undf2_;
+            Matrix<double, 9, 1> adj_undf1_, adj_undf2_;
             // // u, v, w
-            // adj_undf1_.middleRows(0,3) = T0*p_Adjoint.middleRows(elem_id(0)*6,3); 
-            // adj_undf1_.middleRows(3,3) = T0*p_Adjoint.middleRows(elem_id(1)*6,3); 
+            // adj_undf1_.middleRows(0,3) = T0*p_Adjoint.middleRows(elem_id(0)*6,3);
+            // adj_undf1_.middleRows(3,3) = T0*p_Adjoint.middleRows(elem_id(1)*6,3);
             // adj_undf1_.middleRows(6,3) = T0*p_Adjoint.middleRows(elem_id(2)*6,3);
             // // thetax thetay thetaz
             // adj_undf2_.middleRows(0,3) = T0*p_Adjoint.middleRows(elem_id(0)*6+3,3);
             // adj_undf2_.middleRows(3,3) = T0*p_Adjoint.middleRows(elem_id(1)*6+3,3);
             // adj_undf2_.middleRows(6,3) = T0*p_Adjoint.middleRows(elem_id(2)*6+3,3);
-                        
+
             // u, v, w
-            adj_undf1_.middleRows(0,3) = T*p_Adjoint.middleRows(elem_id(0)*6,3);  // TEST for JUN15_n
-            adj_undf1_.middleRows(3,3) = T*p_Adjoint.middleRows(elem_id(1)*6,3); 
-            adj_undf1_.middleRows(6,3) = T*p_Adjoint.middleRows(elem_id(2)*6,3);
+            adj_undf1_.middleRows(0, 3) = T * p_Adjoint.middleRows(elem_id(0) * 6, 3); // TEST for JUN15_n
+            adj_undf1_.middleRows(3, 3) = T * p_Adjoint.middleRows(elem_id(1) * 6, 3);
+            adj_undf1_.middleRows(6, 3) = T * p_Adjoint.middleRows(elem_id(2) * 6, 3);
             // thetax thetay thetaz
-            adj_undf2_.middleRows(0,3) = T*p_Adjoint.middleRows(elem_id(0)*6+3,3);
-            adj_undf2_.middleRows(3,3) = T*p_Adjoint.middleRows(elem_id(1)*6+3,3);
-            adj_undf2_.middleRows(6,3) = T*p_Adjoint.middleRows(elem_id(2)*6+3,3);
+            adj_undf2_.middleRows(0, 3) = T * p_Adjoint.middleRows(elem_id(0) * 6 + 3, 3);
+            adj_undf2_.middleRows(3, 3) = T * p_Adjoint.middleRows(elem_id(1) * 6 + 3, 3);
+            adj_undf2_.middleRows(6, 3) = T * p_Adjoint.middleRows(elem_id(2) * 6 + 3, 3);
 
             adj_e.membrane << adj_undf1_(0), adj_undf1_(1), adj_undf2_(2), adj_undf1_(3), adj_undf1_(4), adj_undf2_(5), adj_undf1_(6), adj_undf1_(7), adj_undf2_(8);
-            adj_e.bending  << adj_undf1_(2), adj_undf2_(0), adj_undf2_(1), adj_undf1_(5), adj_undf2_(3), adj_undf2_(4), adj_undf1_(8), adj_undf2_(6), adj_undf2_(7);
+            adj_e.bending << adj_undf1_(2), adj_undf2_(0), adj_undf2_(1), adj_undf1_(5), adj_undf2_(3), adj_undf2_(4), adj_undf1_(8), adj_undf2_(6), adj_undf2_(7);
 
             Matrix3d X_R2, X_2;
-	X_R2.noalias() = T*T0.transpose()*X_R; // Jun22_filterX in {T} coordinate (no deformation)
-	X_2.noalias()  = T*X; // non-centered X
-            Matrix<double,2,3> xycoord  = X_R2.topRows(2);  
-            Matrix<double,2,3> xycoord0 = X_2.topRows(2);  
+            X_R2.noalias() = T * T0.transpose() * X_R; // Jun22_filterX in {T} coordinate (no deformation)
+            X_2.noalias() = T * X;                     // non-centered X
+            Matrix<double, 2, 3> xycoord = X_R2.topRows(2);
+            Matrix<double, 2, 3> xycoord0 = X_2.topRows(2);
 
-	// NOTE: this is not global coord, and must consider material anisotropy direction 
-            CoreElement coreelem0(xycoord0, Mater_e); 
-            CoreElement coreelem (xycoord,  Mater_e);
+            // NOTE: this is not global coord, and must consider material anisotropy direction
+            CoreElement coreelem0(xycoord0, Mater_e);
+            CoreElement coreelem(xycoord, Mater_e);
 
-            Matrix<double,1,6>  stress_tmp, strain_tmp;
+            Matrix<double, 1, 6> stress_tmp, strain_tmp;
 
-            Gpts.row(counter) = coreelem.get_StressStrain(p_d, Fnm_zeros, 1./3.0, 1./3.0, stress_tmp, strain_tmp, X);  // Deformed coordinate, filtered p_d
+            Gpts.row(counter) = coreelem.get_StressStrain(p_d, Fnm_zeros, 1. / 3.0, 1. / 3.0, stress_tmp, strain_tmp, X); // Deformed coordinate, filtered p_d
             //result_cr.row(counter) = stress_tmp * feaMesh.areafraction[ee];
             //strain_cr.row(counter) = strain_tmp;
 
-            Matrix<double,1,6>  stress_adjoint, del_adjoint;//, gradstress; // gradstress는 isoparametric 가정으로 사라짐
+            Matrix<double, 1, 6> stress_adjoint, del_adjoint; //, gradstress; // gradstress는 isoparametric 가정으로 사라짐
             // coreelem0.get_StressStrain(adj_e, Fnm_zeros, 1./3.0, 1./3.0, stress_adjoint, del_adjoint, X); // Undeformed coordinate
-            coreelem0.get_StressStrain(adj_e, Fnm_zeros, 1./3.0, 1./3.0, stress_adjoint, del_adjoint, X); // double_jacob
+            coreelem0.get_StressStrain(adj_e, Fnm_zeros, 1. / 3.0, 1. / 3.0, stress_adjoint, del_adjoint, X); // double_jacob
 
-            Matrix<double,1,6>  stress_initial;            
+            Matrix<double, 1, 6> stress_initial;
             // stress_initial.noalias() = (stress_tmp*Q2.transpose()).transpose(); // Q2*stress = reference state
             // stress_initial = stress_tmp; // Sens1
             stress_initial = Jacobian * stress_tmp; // Jun21_Jac
 
-            #if __DEBUGFLAG__
-                sigma_log << Gpts.row(counter) << ": " << stress_tmp<< "\t ||" << stress_initial <<"\n"; 
-                delP_log << Gpts.row(counter) << ": " << strain_tmp<< "\t ||" << del_adjoint <<"\n"; 
-            #endif
+#if __DEBUGFLAG__
+            sigma_log << Gpts.row(counter) << ": " << stress_tmp << "\t ||" << stress_initial << "\n";
+            delP_log << Gpts.row(counter) << ": " << strain_tmp << "\t ||" << del_adjoint << "\n";
+#endif
 
-            GptsSensitivities(counter,0) = stress_initial.dot(strain_tmp) * feaMesh.areafraction[ee];// Jacobian - double_jacob //stress_tmp.dot(strain_tmp) * feaMesh.areafraction[ee]; 
-            GptsSensitivities(counter,1) = stress_initial.dot(del_adjoint) * feaMesh.areafraction[ee];
-            GptsSensitivities(counter,2) = GptsSensitivities(counter,1);
-            GptsSensitivities(counter,3) = -GptsSensitivities(counter,1); 
-            
+            GptsSensitivities(counter, 0) = stress_initial.dot(strain_tmp) * feaMesh.areafraction[ee]; // Jacobian - double_jacob //stress_tmp.dot(strain_tmp) * feaMesh.areafraction[ee];
+            GptsSensitivities(counter, 1) = stress_initial.dot(del_adjoint) * feaMesh.areafraction[ee];
+            GptsSensitivities(counter, 2) = GptsSensitivities(counter, 1);
+            GptsSensitivities(counter, 3) = -GptsSensitivities(counter, 1);
+
             // increase counter
-            counter += 1;  
-        } 
+            counter += 1;
+        }
     }
-    #if __DEBUGFLAG__
-        sigma_log.close();  
-        delP_log.close();
-    #endif
+#if __DEBUGFLAG__
+    sigma_log.close();
+    delP_log.close();
+#endif
 }
 
+void Sensitivity::to_gptSens(bool isLinear)
+{
+    MatrixXi elem_id0, elem_order;
+
+    if (feaMesh.isOverlaid == true)
+    {
+        elem_id0 = MatrixXi::Zero(4, 1);
+        elem_order = MatrixXi::Zero(4, 3);
+        elem_order << 0, 1, 2, 1, 2, 3, 2, 3, 0, 3, 0, 1;
+
+        gptsSens.resize(feaMesh.ELEM.rows() * 4);
+    }
+    else
+    {
+        elem_order << 0, 1, 2;
+        gptsSens.resize(feaMesh.ELEM.rows());
+    }
+
+    for (unsigned int ee = 0; ee < feaMesh.ELEM.rows(); ++ee)
+    {
+        elem_id0 = feaMesh.ELEM.row(ee);
+        for (unsigned int kk = 0; kk < elem_order.rows(); ++kk)
+        {
+            Vector3i elem_id;
+            for (unsigned int ppp = 0; ppp < 3; ++ppp)
+            {
+                elem_id(ppp) = elem_id0(elem_order(kk, ppp));
+            }
+
+            Matrix<double, 3, 3> X;
+            for (int mmm = 0; mmm < 3; ++mmm)
+            {
+                X.col(mmm) = feaMesh.NODE.row(elem_id(mmm)).transpose();
+            }
+
+            gptsSens[ee * elem_order.rows() + kk].x = (X(0, 0) + X(0, 1) + X(0, 2)) / 3.0;
+            gptsSens[ee * elem_order.rows() + kk].y = (X(1, 0) + X(1, 1) + X(1, 2)) / 3.0;
+            gptsSens[ee * elem_order.rows() + kk].z = (X(2, 0) + X(2, 1) + X(2, 2)) / 3.0;
+            if (isLinear == false)
+            {
+                gptsSens[ee * elem_order.rows() + kk].sens = GptsSensitivities(ee * elem_order.rows() + kk, 2);
+            }
+            else
+            {
+                gptsSens[ee * elem_order.rows() + kk].sens = GptsSensitivities(ee * elem_order.rows() + kk, 0);
+            }
+        }
+    }
+}
+
+/*
 double Sensitivity::ComputeBoundaryPointSensitivity(std::vector<double> & Pointxy, double Radius, unsigned int WeightFlag, bool isLinear, double Tolerance){
     unsigned int Counter = 0;
     unsigned int p;
@@ -279,3 +338,4 @@ double Sensitivity::ComputeBoundaryPointSensitivity(std::vector<double> & Pointx
     
     return PointSensitivity;
 }
+*/

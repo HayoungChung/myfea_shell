@@ -11,35 +11,44 @@
 
 using namespace Eigen;
 
-class Sensitivity : public EICR_SHELL{
-    public:
-    Sensitivity(class FEAMesh & feaMEsh, std::vector<Material_ABD> & material, MatrixXd & GU_u, VectorXd & GU_Rv, VectorXd & p_Adjoint);
-    ~Sensitivity(){
+struct GptsCompl
+{
+    double x, y, z;
+    double sens;
+};
+
+class Sensitivity : public EICR_SHELL
+{
+  public:
+    Sensitivity(class FEAMesh &feaMEsh, std::vector<Material_ABD> &material, MatrixXd &GU_u, VectorXd &GU_Rv, VectorXd &p_Adjoint);
+    ~Sensitivity()
+    {
     }
 
     // VectorXd BptsSensitivities;
     MatrixXd GptsSensitivities;
 
-//   void ComputeComplianceSensitivities(double areamin);
+    //   void ComputeComplianceSensitivities(double areamin);
     void ComputeComplianceSensitivities(double Tolerance = 0.001); // Gausspoint sensitivities
     // void ComputeBoundarySensitivities(double radius, double * bPoints);
     // double ComputeBoundaryPointSensitivity(std::vector<double> & Pointxy, std::vector<double> & Sensitivities, double Radius, unsigned int WeightFlag, double Tolerance = 0.001);
-    double ComputeBoundaryPointSensitivity(std::vector<double> & Pointxy, double Radius, unsigned int WeightFlag, bool isLinear = false, double Tolerance = 0.001);
+    // double ComputeBoundaryPointSensitivity(std::vector<double> & Pointxy, double Radius, unsigned int WeightFlag, bool isLinear = false, double Tolerance = 0.001);
     // double compliance;
     MatrixXd Gpts; // global position of gausspoints
+    void to_gptSens(bool isLinear = false);
+    std::vector<GptsCompl> gptsSens;
 
-    private:
+  private:
     std::vector<double> ri, si, wi;
-    FEAMesh & feaMesh;
-    std::vector<Material_ABD> & material;
-    MatrixXd GU_u, GU_R; 
+    FEAMesh &feaMesh;
+    std::vector<Material_ABD> &material;
+    MatrixXd GU_u, GU_R;
     VectorXd GU_Rv;
 
     VectorXd p_Adjoint;
     MatrixXd nabla_0; // Bmatrix of undeformed condition
-    MatrixXd result_cr; 
+    MatrixXd result_cr;
     MatrixXd strain_cr;
-    
 
     MatrixXd pull_back(MatrixXd param_CR);
 
