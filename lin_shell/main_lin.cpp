@@ -18,21 +18,21 @@ int main()
     int npe = 3, dpn = 6, dpe = 18;
     
     // Mesh generation
-    const double Lxy[2] = {40., 20.};
-    const int exy[2] = {40, 20};
-    const double h = 0.5; // the h/L < 0.1
+    const double Lxy[2] = {160., 80.};
+    const int exy[2] = {160, 80};
+    const double h = 2; // the h/L < 0.1
     
     LSM::Mesh lsmMesh(exy[0], exy[1], false);
     double meshArea = lsmMesh.width * lsmMesh.height;
-    
-    std::vector<LSM::Hole> holes;
-    holes.push_back(LSM::Hole(10, 10, 3));
-    holes.push_back(LSM::Hole(20, 10, 3));
-    holes.push_back(LSM::Hole(30, 10, 3));
-    holes.push_back(LSM::Hole(15, 20, 3));
-    holes.push_back(LSM::Hole(25, 20, 3));
-    holes.push_back(LSM::Hole(15, 0, 3));
-    holes.push_back(LSM::Hole(25, 0, 3));
+
+    // std::vector<LSM::Hole> holes;
+    // holes.push_back(LSM::Hole(10, 10, 3));
+    // holes.push_back(LSM::Hole(20, 10, 3));
+    // holes.push_back(LSM::Hole(30, 10, 3));
+    // holes.push_back(LSM::Hole(15, 20, 3));
+    // holes.push_back(LSM::Hole(25, 20, 3));
+    // holes.push_back(LSM::Hole(15, 0, 3));
+    // holes.push_back(LSM::Hole(25, 0, 3));
     // holes.push_back(LSM::Hole(8, 7, 2.5));
     // holes.push_back(LSM::Hole(16, 13.5, 2.5));
     // holes.push_back(LSM::Hole(24, 7, 2.5));
@@ -67,7 +67,7 @@ int main()
 
     double time = 0;
 
-    LSM::LevelSet levelSet(lsmMesh, holes);
+    LSM::LevelSet levelSet(lsmMesh, 0.2); //, holes);
     levelSet.reinitialise();
     LSM::InputOutput io;
     LSM::Boundary boundary(levelSet);
@@ -79,13 +79,13 @@ int main()
     const unsigned int nNODE = feaMesh.NODE.rows();
     const unsigned nDOF = nNODE * dpn;
 
-    std::ofstream eFile("elem.txt");
-    eFile << feaMesh.ELEM << std::endl;
-    eFile.close();
+    // std::ofstream eFile("elem.txt");
+    // eFile << feaMesh.ELEM << std::endl;
+    // eFile.close();
 
-    std::ofstream nFile("node.txt");
-    nFile << feaMesh.NODE << std::endl;
-    nFile.close();
+    // std::ofstream nFile("node.txt");
+    // nFile << feaMesh.NODE << std::endl;
+    // nFile.close();
 
     // Material
 
@@ -124,14 +124,7 @@ int main()
     }
 
     feaMesh.get_BCid(BCtmp);
-    /*
-    std::cout << "NODE: \n"
-              << feaMesh.NODE << "\n============" << std::endl;
-    std::cout << "ELEM: \n"
-              << feaMesh.ELEM << "\n============" << std::endl;
-    std::cout << "BCid: \n"
-              << feaMesh.BCid << "\n============" << std::endl;
-    */
+
     MatrixXd Force_NM(nELEM, feaMesh.dpn);
     MatrixXd Force_Fix = MatrixXd::Zero(nNODE, feaMesh.dpn);
     Force_NM.fill(0.0);
@@ -140,14 +133,16 @@ int main()
 
     for (int tt = 0; tt < Xtip.size(); tt++)
     {
-        Force_Fix(Xtip[tt], 1) = -50;
+        // Force_Fix(Xtip[tt], 0) = -1;
+        Force_Fix(Xtip[tt], 1) = -1;
     }
 
     Force force;
     force.NM = Force_NM;
     force.fix = Force_Fix;
     io.saveLevelSetVTK(0, levelSet);
-    unsigned int MAXITER = 100;
+    unsigned int MAXITER = 1;
+    double nReinit =0;
     for (unsigned int n_iterations = 0; n_iterations < MAXITER; n_iterations++)
     {
         // =========== SOLVE ======================== //
@@ -169,28 +164,34 @@ int main()
         LinShell lin_shell(feaMesh, material, force);
         lin_shell.compute();
 
-        std::cout << "making compressed (sparse) \n";
-        //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
-        ConjugateGradient<SparseMatrix<double> > spsolver;
-        lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
-        spsolver.compute(lin_shell.sGKT);
-
+        std::cout << "done\n";
+        // ma57
+        std::cout << "starting ma57 lin solve\n";
+        SparseMatrix<double> K_tri = lin_shell.sGKT.triangularView<Lower>();
+        MA57Solver ma57(true, false);
+        ma57.compute(K_tri);
         MatrixXd u;
         MatrixXd u6;
-
-        std::cout << "starting lin solve\n";
-        u = spsolver.solve(lin_shell.Res);
-        std::cout << "end of lin solve\n";
-
+        u = ma57.solve(lin_shell.Res);
         u6 = Map<MatrixXd>(u.data(), 6, nNODE).transpose();
-        std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
+        std::cout << "ending lin solve\n";
+
+        // //SparseQR<SparseMatrix<double>, COLAMDOrdering<int>> spsolver;
+        // ConjugateGradient<SparseMatrix<double>> spsolver;
+        // lin_shell.sGKT.makeCompressed(); // this is time-consuming!!!! (DONNO WHY)
+        // spsolver.compute(lin_shell.sGKT);
+
+        // MatrixXd u;
+        // MatrixXd u6;
+        // std::cout << "starting lin solve\n";
 
         std::ofstream dispFile("displacement.txt");
         dispFile << u6 << std::endl;
         dispFile.close();
         feaMesh.to_vtk(u6);
         
-
+        std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
+        std::ofstream gsfile("gpts_sens_test.txt");
         /*
         // WIP: checking if the locations of the Gpts are the source of the unsymm.
         // this leads to rank dificiency... 
@@ -216,16 +217,23 @@ int main()
         feaMesh.isOverlaid = true;
         // end of WIP
         */
-        LinSensitivity linSens(feaMesh, gptsCompl);
-        std::ofstream gsfile("gpts_sens_test.txt");
+        // LinSensitivity linSens(feaMesh, gptsCompl);
+        // std::ofstream gsfile("gpts_sens_test.txt");
         for (unsigned int ii = 0; ii < gptsCompl.size(); ii++)
         {
-            gsfile << gptsCompl[ii].x << " " << gptsCompl[ii].y << " " << gptsCompl[ii].sens  << std::endl;
+            gsfile << gptsCompl[ii].x << " " << gptsCompl[ii].y
+                   << " " << gptsCompl[ii].z << " " << gptsCompl[ii].sens << std::endl;
         }
         gsfile.close();
+        std::ofstream dispFile("displacement.txt");
+        dispFile << u6 << std::endl;
+        dispFile.close();
+        feaMesh.to_vtk(u6);
+
+        SensitivityAnalysis m2doSens(feaMesh, gptsCompl);
 
         std::ofstream bsfile("bpts_sens_test.txt");
-        
+
         std::cout << "starting least square interpolation \n";
         for (int i = 0; i < boundary.points.size(); i++)
         {
@@ -235,8 +243,16 @@ int main()
 
             // Interpolate Guass point sensitivities by least squares.
             // TOFIX: currently 2D
-            boundary.points[i].sensitivities[0] = -linSens.ComputeBoundaryPointSensitivity2D(bPoint, 4, 5, 0.01);
+            // boundary.points[i].sensitivities[0] = -linSens.ComputeBoundaryPointSensitivity2D(bPoint, 4, 5, 0.01);
+            m2doSens.ComputeBoundarySensitivities(2, bPoint, 0.01); // pushing back boundarySens
+        }
+        for (int i = 0; i < boundary.points.size(); i++)
+        {
+            std::vector<double> bPoint(2, 0);
+            bPoint[0] = boundary.points[i].coord.x;
+            bPoint[1] = boundary.points[i].coord.y;
 
+            boundary.points[i].sensitivities[0] = m2doSens.boundarySens[i];
             if (bsfile.is_open())
             {
                 bsfile << bPoint[0] << " " << bPoint[1] << " " << boundary.points[i].sensitivities[0] << std::endl;
@@ -291,20 +307,20 @@ int main()
         bool isReinitialised = levelSet.update(timeStep);
 
         // // Reinitialise the signed distance function, if necessary.
-        // if (!isReinitialised)
-        // {
-        //     // Reinitialise at least every 20 iterations.
-        //     if (nReinit == 20)
-        //     {
-        // levelSet.reinitialise();
-        //         nReinit = 0;
-        //     }
-        // }
-        // else
-        //     nReinit = 0;
+        if (!isReinitialised)
+        {
+            // Reinitialise at least every 20 iterations.
+            if (nReinit == 20)
+            {
+                levelSet.reinitialise();
+                nReinit = 0;
+            }
+        }
+        else
+            nReinit = 0;
 
-        // // Increment the number of steps since reinitialisation.
-        // nReinit++;
+        // Increment the number of steps since reinitialisation.
+        nReinit++;
 
         // Increment the time.
         time += timeStep;
