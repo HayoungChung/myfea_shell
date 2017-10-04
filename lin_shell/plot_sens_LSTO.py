@@ -6,7 +6,7 @@ a = np.loadtxt('gpts_sens_test.txt')
 b = np.loadtxt('bpts_sens_test.txt')
 
 plt.figure(1)
-plt.scatter(a[:,0], a[:,1], 20, a[:,2])
+plt.scatter(a[:,0], a[:,1], 20, a[:,3])
 plt.colorbar()
 
 plt.figure(2)

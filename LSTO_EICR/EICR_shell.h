@@ -11,6 +11,14 @@ struct AuxMat
     MatrixXd Te, P_, G_, H_, Fh_nm, F_n, F_nm_ext, M_ext, M_;
 };
 
+struct GptsCompl
+{
+  // it comes from lin_shell..
+  double x, y, z;
+  double sens;
+  Matrix3d N_tilde, M_tilde; // resultants // WIP
+};
+
 class EICR_SHELL
 {
   public:
@@ -28,7 +36,11 @@ class EICR_SHELL
     static MatrixXd fstore2mat(const VectorXd Rv);
     static VectorXd fmat2store(const MatrixXd xm_R);
 
+    std::vector<GptsCompl> get_GaussCompl(const MatrixXd &GU_u3,const MatrixXd& GU_R, std::vector<Material_ABD> &material, struct Force &force);
+    double compliance = 0;
+
   protected:
+    std::vector<GptsCompl> gptsSens;
     std::vector<double> ri, si, wi;
     Matrix<int, 9, 1> mdof, bdof;
     MatrixXi elem_id0, elem_order;

@@ -42,6 +42,122 @@ EICR_SHELL::EICR_SHELL(FEAMesh &feaMesh_, int ngp) : feaMesh(feaMesh_)
 //     this->assembly(GU_u0_, GU_Rv0_, material_, force_, true);
 // }
 
+std::vector<GptsCompl> EICR_SHELL::get_GaussCompl(const MatrixXd &GU_u3,const MatrixXd& GU_R, std::vector<Material_ABD> &material, struct Force &force)
+{
+    const int dpn = feaMesh.dpn, dpe = feaMesh.dpe, npe = feaMesh.npe;
+    MatrixXd FNM = force.NM, Ffix = force.fix;
+    MatrixXi ELEM = feaMesh.ELEM;
+    MatrixXd NODE = feaMesh.NODE;
+    const int nNODE = NODE.rows(), nELEM = ELEM.rows();
+    const int nDOF = nNODE * dpn;
+
+   
+    if (feaMesh.isOverlaid == true)
+    {
+        elem_id0 = MatrixXi::Zero(4, 1);
+        elem_order = MatrixXi::Zero(4, 3);
+        elem_order << 0, 1, 2, 1, 2, 3, 2, 3, 0, 3, 0, 1;
+
+        gptsSens.resize(nELEM * 4);
+    }
+    else
+    {
+        elem_order << 0, 1, 2;
+        gptsSens.resize(nELEM);
+    }
+
+    for (unsigned int ee = 0; ee < nELEM; ++ee)
+    {
+        elem_id0 = ELEM.row(ee);
+        Matrix<double, 3, 3> Amat, Dmat, Bmat;
+        Amat = material[ee].Amat;
+        Dmat = material[ee].Dmat;
+        Bmat = material[ee].Bmat;
+        for (unsigned int kk = 0; kk < elem_order.rows(); ++kk)
+        {
+            Vector3i elem_id;
+            for (unsigned int ppp = 0; ppp < 3; ++ppp)
+            {
+                elem_id(ppp) = elem_id0(elem_order(kk, ppp));
+            }
+
+            Matrix<double, 3, 3> X;
+            Matrix<double, 3, 3> u;
+            for (int mmm = 0; mmm < 3; ++mmm)
+            {
+                X.col(mmm) = NODE.row(elem_id(mmm)).transpose();
+                u.col(mmm) = GU_u3.row(elem_id(mmm)).transpose();
+            }
+
+            Matrix<double, 9, 3> Ra;
+            for (int nnn = 0; nnn < 3; ++nnn)
+            {
+                for (int mmm = 0; mmm < 3; ++mmm)
+                {
+                    Ra.row(3 * nnn + mmm) = GU_R.row(elem_id(nnn) * 3 + mmm);
+                }
+            }
+
+            Matrix3d X_R, x_R;
+            Matrix3d u_d;
+            Matrix<double, 9, 1> th_d;
+            Matrix<double, 3, 3> Q;
+            Matrix3d T0, T;
+
+            Filter_Def(X, u, Ra, X_R, x_R, u_d, th_d, T0, T);
+
+            Q << T0(0, 0) * T0(0, 0), T0(0, 1) * T0(0, 1), T0(0, 0) * T0(0, 1),
+                T0(1, 0) * T0(1, 0), T0(1, 1) * T0(1, 1), T0(1, 0) * T0(1, 1),
+                2 * T0(0, 0) * T0(1, 0), 2 * T0(0, 1) * T0(1, 1), T0(0, 0) * T0(1, 1) + T0(0, 1) * T0(1, 0);
+
+            Matrix<double, 6, 1> FNM_r;
+            FNM_r.topRows(3) = (FNM.block(ee, 0, 1, 3) * Q.transpose()).transpose();
+            FNM_r.bottomRows(3) = (FNM.block(ee, 3, 1, 3) * Q.transpose()).transpose();
+
+            Matrix<double, 6, 1> Fnm_zeros;
+            Fnm_zeros.fill(0);
+
+            Material_ABD Mater_e;
+            Mater_e.Amat = Q * Amat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Dmat = Q * Dmat * Q.transpose() * feaMesh.areafraction[ee];
+            Mater_e.Bmat = Q * Bmat * Q.transpose() * feaMesh.areafraction[ee];
+            // std::cout << "Q" << Q << std::endl;
+
+            FilteredP p_d;
+            p_d.membrane << u_d(0), u_d(1), th_d(2), u_d(3), u_d(4), th_d(5), u_d(6), u_d(7), th_d(8);
+            p_d.bending << u_d(2), th_d(0), th_d(1), u_d(5), th_d(3), th_d(4), u_d(8), th_d(6), th_d(7);
+
+            // Elastic material stiffness / forces K_el, f_el
+            Matrix<double, 2, 3> xycoord = x_R.topRows(2);
+
+            // CoreElement coreelem = f_core_element(xycoord,Mater_e,FNM_r,p_d);
+            CoreElement coreelem(xycoord, Mater_e); // , FNM_r, p_d);
+
+            Matrix<double, 1, 6> stress_tmp, strain_tmp;
+
+            // comptue gaussprops
+            // coreelem.get_StressStrain(p_d, Fnm_zeros, 1. / 3., 1 / 3., stress_tmp, strain_tmp); 
+            std::vector<GaussProp> gaussprops = coreelem.get_GaussProp(p_d, Fnm_zeros);
+
+            // comptue gauss points in global coordinate
+            gptsSens[ee * elem_order.rows() + kk].x = (X(0, 0) + X(0, 1) + X(0, 2)) / 3.0;
+            gptsSens[ee * elem_order.rows() + kk].y = (X(1, 0) + X(1, 1) + X(1, 2)) / 3.0;
+            gptsSens[ee * elem_order.rows() + kk].z = (X(2, 0) + X(2, 1) + X(2, 2)) / 3.0;
+
+            // ComputeSensitivity!!
+            gptsSens[ee * elem_order.rows() + kk].sens = gaussprops[0].sensLin; // WIP: linear sensitivity
+            if (feaMesh.areafraction[ee] < 0.01)
+            {
+                gptsSens[ee * elem_order.rows() + kk].sens = 0; 
+            }
+
+            compliance += gaussprops[0].sensLin;
+        }
+    }
+    return gptsSens;
+};
+
+
 void EICR_SHELL::assembly(MatrixXd &GU_u0_, VectorXd &GU_Rv0_, std::vector<Material_ABD> &material_, struct Force &force_)
 { //, bool issens){
     MatrixXd &GU_u0 = GU_u0_;

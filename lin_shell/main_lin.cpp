@@ -4,7 +4,11 @@
 #include <fstream>
 
 #include "./lin_shell.h"
-#include "./LinSensitivity.h"
+#include "./ma57_solver.h"
+
+// #include "./LinSensitivity.h"
+#include "./m2do_lin_sensitivity.h"
+
 #include "./../../01.M2DO_code/M2DO_LSM/include/M2DO_LSM.h"
 
 using namespace Eigen;
@@ -14,18 +18,19 @@ int main()
 {
     Matrix3d eye3 = Matrix3d::Identity();
     bool isOverlaid = true;
+    char fname[32];
     
     int npe = 3, dpn = 6, dpe = 18;
     
     // Mesh generation
-    const double Lxy[2] = {160., 80.};
-    const int exy[2] = {160, 80};
-    const double h = 2; // the h/L < 0.1
+    const double Lxy[2] = {80., 40.};
+    const int exy[2] = {80, 40};
+    const double h = 1; // the h/L < 0.1
     
     LSM::Mesh lsmMesh(exy[0], exy[1], false);
     double meshArea = lsmMesh.width * lsmMesh.height;
 
-    // std::vector<LSM::Hole> holes;
+    std::vector<LSM::Hole> holes;
     // holes.push_back(LSM::Hole(10, 10, 3));
     // holes.push_back(LSM::Hole(20, 10, 3));
     // holes.push_back(LSM::Hole(30, 10, 3));
@@ -33,29 +38,29 @@ int main()
     // holes.push_back(LSM::Hole(25, 20, 3));
     // holes.push_back(LSM::Hole(15, 0, 3));
     // holes.push_back(LSM::Hole(25, 0, 3));
-    // holes.push_back(LSM::Hole(8, 7, 2.5));
-    // holes.push_back(LSM::Hole(16, 13.5, 2.5));
-    // holes.push_back(LSM::Hole(24, 7, 2.5));
-    // holes.push_back(LSM::Hole(32, 13.5, 2.5));
-    // holes.push_back(LSM::Hole(40, 7, 2.5));
-    // holes.push_back(LSM::Hole(48, 13.5, 2.5));
-    // holes.push_back(LSM::Hole(56, 7, 2.5));
-    // holes.push_back(LSM::Hole(64, 13.5, 2.5));
-    // holes.push_back(LSM::Hole(72, 7, 2.5));
-    // holes.push_back(LSM::Hole(8, 20, 2.5));
-    // holes.push_back(LSM::Hole(16, 26.5, 2.5));
-    // holes.push_back(LSM::Hole(24, 20, 2.5));
-    // holes.push_back(LSM::Hole(32, 26.5, 2.5));
-    // holes.push_back(LSM::Hole(40, 20, 2.5));
-    // holes.push_back(LSM::Hole(48, 26.5, 2.5));
-    // holes.push_back(LSM::Hole(56, 20, 2.5));
-    // holes.push_back(LSM::Hole(64, 26.5, 2.5));
-    // holes.push_back(LSM::Hole(72, 20, 2.5));
-    // holes.push_back(LSM::Hole(8, 33, 2.5));
-    // holes.push_back(LSM::Hole(24, 33, 2.5));
-    // holes.push_back(LSM::Hole(40, 33, 2.5));
-    // holes.push_back(LSM::Hole(56, 33, 2.5));
-    // holes.push_back(LSM::Hole(72, 33, 2.5));
+    holes.push_back(LSM::Hole(8, 7, 2.5));
+    holes.push_back(LSM::Hole(16, 13.5, 2.5));
+    holes.push_back(LSM::Hole(24, 7, 2.5));
+    holes.push_back(LSM::Hole(32, 13.5, 2.5));
+    holes.push_back(LSM::Hole(40, 7, 2.5));
+    holes.push_back(LSM::Hole(48, 13.5, 2.5));
+    holes.push_back(LSM::Hole(56, 7, 2.5));
+    holes.push_back(LSM::Hole(64, 13.5, 2.5));
+    holes.push_back(LSM::Hole(72, 7, 2.5));
+    holes.push_back(LSM::Hole(8, 20, 2.5));
+    holes.push_back(LSM::Hole(16, 26.5, 2.5));
+    holes.push_back(LSM::Hole(24, 20, 2.5));
+    holes.push_back(LSM::Hole(32, 26.5, 2.5));
+    holes.push_back(LSM::Hole(40, 20, 2.5));
+    holes.push_back(LSM::Hole(48, 26.5, 2.5));
+    holes.push_back(LSM::Hole(56, 20, 2.5));
+    holes.push_back(LSM::Hole(64, 26.5, 2.5));
+    holes.push_back(LSM::Hole(72, 20, 2.5));
+    holes.push_back(LSM::Hole(8, 33, 2.5));
+    holes.push_back(LSM::Hole(24, 33, 2.5));
+    holes.push_back(LSM::Hole(40, 33, 2.5));
+    holes.push_back(LSM::Hole(56, 33, 2.5));
+    holes.push_back(LSM::Hole(72, 33, 2.5));
 
     double maxArea = 0.5;
     double temperature = 0;
@@ -67,7 +72,7 @@ int main()
 
     double time = 0;
 
-    LSM::LevelSet levelSet(lsmMesh, 0.2); //, holes);
+    LSM::LevelSet levelSet(lsmMesh, holes, 0.2);
     levelSet.reinitialise();
     LSM::InputOutput io;
     LSM::Boundary boundary(levelSet);
@@ -89,7 +94,7 @@ int main()
 
     // Material
 
-    const double E = 1.2e6, v = 0.3;
+    const double E = 1, v = 0.3;
     MatrixXd Cijkl(3, 3), Amat(3, 3), Dmat(3, 3), Bmat(3, 3);
     Cijkl << 1., v, 0., v, 1, 0., 0., 0., 0.5 * (1 - v);
     Cijkl *= E / (1 - v * v);
@@ -134,14 +139,14 @@ int main()
     for (int tt = 0; tt < Xtip.size(); tt++)
     {
         // Force_Fix(Xtip[tt], 0) = -1;
-        Force_Fix(Xtip[tt], 1) = -1;
+        Force_Fix(Xtip[tt], 1) = -0.001;
     }
 
     Force force;
     force.NM = Force_NM;
     force.fix = Force_Fix;
     io.saveLevelSetVTK(0, levelSet);
-    unsigned int MAXITER = 1;
+    unsigned int MAXITER = 150;
     double nReinit =0;
     for (unsigned int n_iterations = 0; n_iterations < MAXITER; n_iterations++)
     {
@@ -153,7 +158,7 @@ int main()
         for (unsigned int ee = 0; ee < nELEM; ee++)
         {
             if (lsmMesh.elements[ee].area < 1e-3)
-                feaMesh.areafraction[ee] = 1e-3;
+                feaMesh.areafraction[ee] = 1e-6;
             else
                 feaMesh.areafraction[ee] = lsmMesh.elements[ee].area;
             // feaMesh.areafraction[ee] = 1.0; // if triangulated
@@ -169,7 +174,8 @@ int main()
         std::cout << "starting ma57 lin solve\n";
         SparseMatrix<double> K_tri = lin_shell.sGKT.triangularView<Lower>();
         MA57Solver ma57(true, false);
-        ma57.compute(K_tri);
+        ma57.compute(K_tri);       
+        
         MatrixXd u;
         MatrixXd u6;
         u = ma57.solve(lin_shell.Res);
@@ -188,10 +194,15 @@ int main()
         std::ofstream dispFile("displacement.txt");
         dispFile << u6 << std::endl;
         dispFile.close();
-        feaMesh.to_vtk(u6);
+        
+        snprintf(fname, sizeof(char) * 32, "step_%i.vtk", n_iterations);
+		feaMesh.to_vtk(u6, fname); //verified
+        // feaMesh.to_vtk(u6);
         
         std::vector<GptsCompl> gptsCompl = lin_shell.get_GaussCompl(u6);
-        std::ofstream gsfile("gpts_sens_test.txt");
+        snprintf(fname, sizeof(char) * 32, "step_%i.gptsSens.txt", n_iterations);
+        std::ofstream gsfile(fname);
+        
         /*
         // WIP: checking if the locations of the Gpts are the source of the unsymm.
         // this leads to rank dificiency... 
@@ -225,14 +236,11 @@ int main()
                    << " " << gptsCompl[ii].z << " " << gptsCompl[ii].sens << std::endl;
         }
         gsfile.close();
-        std::ofstream dispFile("displacement.txt");
-        dispFile << u6 << std::endl;
-        dispFile.close();
-        feaMesh.to_vtk(u6);
-
+        
         SensitivityAnalysis m2doSens(feaMesh, gptsCompl);
 
-        std::ofstream bsfile("bpts_sens_test.txt");
+		snprintf(fname, sizeof(char) * 32, "step_%i.bptsSens.txt", n_iterations);
+		std::ofstream bsfile(fname);
 
         std::cout << "starting least square interpolation \n";
         for (int i = 0; i < boundary.points.size(); i++)

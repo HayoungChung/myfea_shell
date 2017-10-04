@@ -20,8 +20,11 @@ struct OPTION{
     int saveflag = 1;
 };
 
-VectorXd f_nlgeom(std::vector<Material_ABD> &, Force &, FEAMesh &, OPTION &, 
-    MatrixXd &, VectorXd &);
+std::vector<GptsCompl> f_nlgeom(std::vector<Material_ABD> &, Force &, FEAMesh &, OPTION &, 
+    MatrixXd &, VectorXd &, MatrixXd&);
+
+// VectorXd f_nlgeom(std::vector<Material_ABD> &, Force &, FEAMesh &, OPTION &, 
+//     MatrixXd &, VectorXd &);
 
 // MatrixXd fstore2mat(const MatrixXd xm_Rv);
 void fRupdate(VectorXd & del_xm_w, int nNODE , MatrixXd & xm_R);

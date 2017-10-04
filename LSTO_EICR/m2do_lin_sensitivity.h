@@ -2,7 +2,8 @@
 #define M2DO_LIN_SENSITIVITY_H
 
 #include "./FEA_hy.h"
-#include "./Sensitivity.h"
+#include "./EICR_shell.h"
+// #include "./Sensitivity.h"
 
 // using namespace std ;
 using namespace Eigen;

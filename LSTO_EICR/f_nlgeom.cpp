@@ -1,8 +1,10 @@
 #include "./f_nlgeom.h"
 #include "./ma57_solver.h" // NOTE: EICR seems unsymmtric (a speed of ma57 ~ iterative solver.)
 
-VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,class FEAMesh & feaMesh, 
-                    struct OPTION & option, MatrixXd & GU_u, VectorXd & GU_Rv){
+// VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,class FEAMesh & feaMesh, 
+//                     struct OPTION & option, MatrixXd & GU_u, VectorXd & GU_Rv){
+    std::vector<GptsCompl> f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,class FEAMesh & feaMesh, 
+                    struct OPTION & option, MatrixXd & GU_u, VectorXd & GU_Rv, MatrixXd& p_Adjoint6){
     int nNODE = feaMesh.NODE.rows();
     int nELEM = feaMesh.ELEM.rows();
     int nDOF  = nNODE*feaMesh.dpn;
@@ -64,7 +66,6 @@ VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,cla
     // WIP: ma57
     MA57Solver ma57(true, false);
     */
-
     while (istep < MAX_STEP){
 
         MatrixXd xm_u3 = GU_u; //Map<MatrixXd>(GU_u.transpose(),3,nNODE).transpose();
@@ -91,7 +92,13 @@ VectorXd f_nlgeom(std::vector<Material_ABD> & material, struct Force & force,cla
 
             // std::cout << "calculating sensitivity..." << std::endl;
             std::cout << "job finished" << std::endl;
-            return p_Adjoint;
+            // WIP:: get sensLin
+            std::vector<GptsCompl> gaussSens = eicr_shell.get_GaussCompl(GU_u, GU_R, material, force);
+
+            p_Adjoint6 = Map<MatrixXd>(p_Adjoint.data(),6,nNODE).transpose();            
+            
+            return gaussSens;
+            // return p_Adjoint;
         }
 
         if ((istep > 0) && (del_lambdaR < CTOL)){
