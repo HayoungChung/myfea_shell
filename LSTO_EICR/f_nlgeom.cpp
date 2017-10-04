@@ -92,10 +92,25 @@
 
             // std::cout << "calculating sensitivity..." << std::endl;
             std::cout << "job finished" << std::endl;
-            // WIP:: get sensLin
-            std::vector<GptsCompl> gaussSens = eicr_shell.get_GaussCompl(GU_u, GU_R, material, force);
+            // std::vector<GptsCompl> gaussSens = eicr_shell.get_GaussCompl(GU_u, GU_R, material, force);
 
-            p_Adjoint6 = Map<MatrixXd>(p_Adjoint.data(),6,nNODE).transpose();            
+            p_Adjoint6 = Map<MatrixXd>(p_Adjoint.data(),6,nNODE).transpose();  
+            MatrixXd GU_u_adj = p_Adjoint6.leftCols(3);            
+            MatrixXd GU_w_adj = p_Adjoint6.rightCols(3).transpose();
+            
+            VectorXd xm_R_adj = VectorXd::Zero(3*nNODE);
+            // Map<MatrixXd> xm_R_adj(GU_w_adj.data(), nNODE * 3, 1);
+            
+            MatrixXd R_identity = MatrixXd::Identity(3,3).replicate(nNODE,1);
+
+            for (int uu = 0; uu < nNODE; ++uu){
+                xm_R_adj[3*uu]      = GU_w_adj(uu,0);
+                xm_R_adj[3*uu+1]    = GU_w_adj(uu,1);
+                xm_R_adj[3*uu+2]    = GU_w_adj(uu,2);
+            }
+
+            fRupdate(xm_R_adj, nNODE, R_identity);
+            std::vector<GptsCompl> gaussSens = eicr_shell.get_GaussCompl(GU_u_adj, R_identity, material, force);
             
             return gaussSens;
             // return p_Adjoint;

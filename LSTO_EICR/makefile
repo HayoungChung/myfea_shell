@@ -7,7 +7,7 @@ CFLAGS = -O3 -std=c++11 -c
 INC  = -I/home/hac210/Dropbox/packages/01.M2DO_code/M2DO_LSM/include -I/home/hac210/Dropbox/packages/eigen3/Eigen
 LIB = -lblas -llapack -L /usr/local/lib -lnlopt -lmetis -lma57 -lgfortran -larpack -lblas -lmetis
 
-TARGET = optim_base
+TARGET = optim_base_adj
 DEBUG  = optim_debug
 OBJECTS = optim_EICR_adjoint.o f_nlgeom.o FEA_hy.o CoreElement.o  EICR_shell.o f_DKT_OPT.o  m2do_lin_sensitivity.o # Sensitivity.o 
 
