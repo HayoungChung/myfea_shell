@@ -1,7 +1,7 @@
 # do not use -O3 (inline)
 
 CXX = g++
-CFLAGS = -O3 -std=c++11 -c
+CFLAGS = -O3 -g -std=c++11 -c
 
 
 INC  = -I/home/hac210/Dropbox/packages/01.M2DO_code/M2DO_LSM/include -I/home/hac210/Dropbox/packages/eigen3/Eigen

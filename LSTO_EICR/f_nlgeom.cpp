@@ -96,7 +96,7 @@
 
             p_Adjoint6 = Map<MatrixXd>(p_Adjoint.data(),6,nNODE).transpose();  
             MatrixXd GU_u_adj = p_Adjoint6.leftCols(3);            
-            MatrixXd GU_w_adj = p_Adjoint6.rightCols(3).transpose();
+            MatrixXd GU_w_adj = p_Adjoint6.rightCols(3);
             
             VectorXd xm_R_adj = VectorXd::Zero(3*nNODE);
             // Map<MatrixXd> xm_R_adj(GU_w_adj.data(), nNODE * 3, 1);
